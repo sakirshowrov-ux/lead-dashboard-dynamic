@@ -1,0 +1,1450 @@
+<title>Lead Vendor Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+
+<style>
+  :root{
+    color-scheme: light;
+    --page-plane:      #f9f9f7;
+    --surface-1:       #fcfcfb;
+    --surface-raised:  #ffffff;
+    --text-primary:    #0b0b0b;
+    --text-secondary:  #52514e;
+    --text-muted:      #898781;
+    --gridline:        #e1e0d9;
+    --baseline:        #c3c2b7;
+    --border:          rgba(11,11,11,0.10);
+    --series-1:        #2a78d6; /* Meta Ads */
+    --series-1-wash:   rgba(42,120,214,0.12);
+    --series-2:        #eb6834; /* Email */
+    --series-2-wash:   rgba(235,104,52,0.12);
+    --series-3:        #1baf7a; /* Website */
+    --series-3-wash:   rgba(27,175,122,0.12);
+    --accent:          #4a3aa7;
+    --accent-wash:     rgba(74,58,167,0.10);
+    --accent-contrast: #ffffff;
+    --good:            #0ca30c;
+    --good-wash:       rgba(12,163,12,0.14);
+    --warning:         #fab219;
+    --warning-wash:    rgba(250,178,25,0.18);
+    --serious:         #ec835a;
+    --critical:        #d03b3b;
+    --critical-wash:   rgba(208,59,59,0.14);
+    --neutral-wash:    rgba(137,135,129,0.14);
+    --shadow-card:     0 1px 2px rgba(11,11,11,0.04), 0 8px 24px -12px rgba(11,11,11,0.12);
+    --font-display: "Sora", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --page-plane:      #0d0d0d;
+      --surface-1:       #1a1a19;
+      --surface-raised:  #202020;
+      --text-primary:    #ffffff;
+      --text-secondary:  #c3c2b7;
+      --text-muted:      #898781;
+      --gridline:        #2c2c2a;
+      --baseline:        #383835;
+      --border:          rgba(255,255,255,0.10);
+      --series-1:        #3987e5;
+      --series-1-wash:   rgba(57,135,229,0.16);
+      --series-2:        #d95926;
+      --series-2-wash:   rgba(217,89,38,0.16);
+      --series-3:        #199e70;
+      --series-3-wash:   rgba(25,158,112,0.18);
+      --accent:          #9085e9;
+      --accent-wash:     rgba(144,133,233,0.16);
+      --accent-contrast: #0d0d0d;
+      --shadow-card:     0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page-plane:      #0d0d0d;
+    --surface-1:       #1a1a19;
+    --surface-raised:  #202020;
+    --text-primary:    #ffffff;
+    --text-secondary:  #c3c2b7;
+    --text-muted:      #898781;
+    --gridline:        #2c2c2a;
+    --baseline:        #383835;
+    --border:          rgba(255,255,255,0.10);
+    --series-1:        #3987e5;
+    --series-1-wash:   rgba(57,135,229,0.16);
+    --series-2:        #d95926;
+    --series-2-wash:   rgba(217,89,38,0.16);
+    --series-3:        #199e70;
+    --series-3-wash:   rgba(25,158,112,0.18);
+    --accent:          #9085e9;
+    --accent-wash:     rgba(144,133,233,0.16);
+    --accent-contrast: #0d0d0d;
+    --shadow-card:     0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  *{ box-sizing: border-box; }
+  body{ background: var(--page-plane); color: var(--text-primary); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  h1,h2,h3,.font-display{ font-family: var(--font-display); text-wrap: balance; }
+  .font-mono{ font-family: var(--font-mono); }
+  ::selection{ background: var(--accent-wash); }
+
+  .eyebrow{ font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+
+  .card{ background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); }
+  .insight-card{ background: var(--surface-1); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow-card); }
+
+  .btn{ display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-body); font-weight: 600; font-size: 13px; padding: 8px 14px; border-radius: 9px; border: 1px solid transparent; cursor: pointer; transition: background-color .12s ease, border-color .12s ease, opacity .12s ease; white-space: nowrap; }
+  .btn:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary{ background: var(--accent); color: var(--accent-contrast); }
+  .btn-primary:hover{ opacity: 0.88; }
+  .btn-primary:disabled{ opacity: 0.45; cursor: not-allowed; }
+  .btn-ghost{ background: transparent; color: var(--text-secondary); border-color: var(--border); }
+  .btn-ghost:hover{ background: var(--neutral-wash); color: var(--text-primary); }
+  .btn-danger-ghost{ background: transparent; color: var(--text-muted); border: none; }
+  .btn-danger-ghost:hover{ color: var(--critical); background: var(--critical-wash); }
+
+  .field-label{ font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display:block; }
+  .field-hint{ font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .input, .select{ width: 100%; font-family: var(--font-body); font-size: 13.5px; color: var(--text-primary); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; transition: border-color .12s ease; }
+  .input:focus, .select:focus{ outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+  .input::placeholder{ color: var(--text-muted); }
+  .input:disabled{ opacity: 0.5; }
+  .err-text{ font-size: 11.5px; color: var(--critical); margin-top: 4px; min-height: 14px; }
+  .checkbox{ width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  textarea.mono-area{ width:100%; font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; padding: 10px; resize: vertical; }
+
+  .segmented{ display:flex; flex-wrap: wrap; background: var(--surface-raised); border:1px solid var(--border); border-radius: 9px; padding: 2px; gap: 2px; }
+  .segmented button{ font-size: 12.5px; font-weight: 600; color: var(--text-secondary); padding: 6px 11px; border-radius: 7px; white-space: nowrap; display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .segmented button.active{ background: var(--accent); color: var(--accent-contrast); }
+  .segmented button:not(.active):hover{ background: var(--neutral-wash); }
+
+  .dot{ width:8px; height:8px; border-radius: 999px; flex: none; display:inline-block; }
+
+  .badge{ display:inline-flex; align-items:center; gap:6px; font-size: 12px; font-weight: 600; padding: 3px 9px 3px 7px; border-radius: 999px; white-space: nowrap; line-height: 1.5; border:none; cursor:default; font-family: var(--font-body); }
+  .badge-outline{ border: 1px solid var(--baseline); color: var(--text-secondary); background:transparent; }
+  .badge-fill{ background: var(--neutral-wash); color: var(--text-secondary); }
+  .badge-good{ background: var(--good-wash); color: var(--text-primary); }
+  .badge-warning{ background: var(--warning-wash); color: var(--text-primary); }
+  .badge-critical{ background: var(--critical-wash); color: var(--text-primary); }
+  button.badge{ cursor:pointer; }
+
+  .kpi-value{ font-family: var(--font-mono); font-weight: 600; font-size: 22px; letter-spacing: -0.01em; }
+  .table-wrap{ overflow: auto; border-radius: 12px; }
+  table{ width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 760px; }
+  thead th{ position: sticky; top: 0; background: var(--surface-1); z-index: 1; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--gridline); cursor: pointer; user-select: none; white-space: nowrap; }
+  thead th:hover{ color: var(--text-secondary); }
+  tbody td{ padding: 10px 14px; border-bottom: 1px solid var(--gridline); color: var(--text-primary); vertical-align: middle; }
+  tbody tr:last-child td{ border-bottom: none; }
+  tbody tr:hover{ background: var(--neutral-wash); }
+  .num-cell{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .meter-track{ height: 8px; border-radius: 999px; background: var(--neutral-wash); overflow:hidden; }
+  .meter-fill{ height: 100%; border-radius: 999px; background: var(--accent); transition: width .4s ease; }
+  .meter-fill.over{ background: var(--critical); }
+
+  .modal-overlay{ position: fixed; inset: 0; background: rgba(11,11,11,0.45); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; z-index: 50; padding: 16px; }
+  .live-dot{ width:7px; height:7px; border-radius:999px; background: var(--good); animation: pulse 2s infinite; }
+  @keyframes pulse{ 0%{ box-shadow: 0 0 0 0 rgba(12,163,12,0.45); } 70%{ box-shadow: 0 0 0 6px rgba(12,163,12,0); } 100%{ box-shadow: 0 0 0 0 rgba(12,163,12,0); } }
+  @media (prefers-reduced-motion: reduce){ .live-dot{ animation: none; } }
+  .scrollbar-thin::-webkit-scrollbar{ height: 8px; width: 8px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb{ background: var(--baseline); border-radius: 999px; }
+  .empty-state{ color: var(--text-muted); font-size: 13px; text-align:center; padding: 32px 12px; }
+  .section-title{ font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+
+  .dropdown-wrap{ position: relative; }
+  .dropdown-menu{ position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-card); min-width: 240px; z-index: 40; overflow: hidden; }
+  .dropdown-item{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; text-align:left; padding: 10px 12px; font-size: 13px; font-weight:600; color: var(--text-primary); background:transparent; border:none; cursor:pointer; }
+  .dropdown-item:hover{ background: var(--neutral-wash); }
+  .dropdown-item small{ font-weight:400; font-size:11px; color: var(--text-muted); }
+
+  .toast{ position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text-primary); color: var(--page-plane); font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px; box-shadow: var(--shadow-card); z-index: 60; display:flex; align-items:center; gap:6px; }
+</style>
+
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+/* ================= utilities ================= */
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function hexToRgba(hex, a){
+  const h = hex.replace("#","");
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return "rgba("+r+","+g+","+b+","+a+")";
+}
+function fmtMoney(n){ return "$" + Math.round(n||0).toLocaleString("en-US"); }
+function fmtMoneyCompact(n){
+  n = n||0;
+  if (!isFinite(n)) return "—";
+  if (Math.abs(n) >= 1000000) return "$" + (n/1000000).toFixed(1).replace(/\.0$/,"") + "M";
+  if (Math.abs(n) >= 1000) return "$" + (n/1000).toFixed(1).replace(/\.0$/,"") + "K";
+  return "$" + Math.round(n).toLocaleString("en-US");
+}
+function fmtPct(n, d){ return (isFinite(n)? n : 0).toFixed(d==null?1:d) + "%"; }
+function fmtX(n){ return isFinite(n) ? n.toFixed(2) + "x" : "0.00x"; }
+function fmtDate(iso){ const d = new Date(iso + "T00:00:00"); return d.toLocaleDateString("en-US", { month:"short", day:"numeric" }); }
+function safeDiv(a,b){ return b ? a/b : 0; }
+function money(n){ return fmtMoney(n); }
+function csvEscape(v){
+  const s = v==null ? "" : String(v);
+  return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function toCSV(headers, rows){
+  const lines = [headers.map(csvEscape).join(",")];
+  rows.forEach(r=> lines.push(r.map(csvEscape).join(",")));
+  return lines.join("\r\n");
+}
+async function getDownloadsApi(){
+  try {
+    if (!window.claude || typeof window.claude.use !== "function") return null;
+    return await window.claude.use("downloads");
+  } catch(e){ return null; }
+}
+
+/* ================= constants ================= */
+const CHANNELS = [
+  { key:"meta", label:"Meta Ads", series:"--series-1" },
+  { key:"email", label:"Email", series:"--series-2" },
+  { key:"website", label:"Website", series:"--series-3" },
+];
+function channelInfo(type){ return CHANNELS.find(c=>c.key===type) || CHANNELS[0]; }
+
+const BASE_VENDORS = [
+  { name:"Lobeline", type:"meta" }, { name:"Hawksem", type:"meta" }, { name:"Setfire", type:"meta" },
+  { name:"Prospect Out", type:"email" }, { name:"ElevateMktg", type:"email" }, { name:"IClientCare", type:"email" }, { name:"BuzzHawk", type:"email" }, { name:"Ultragrowth", type:"email" },
+  { name:"MedVirtual Website", type:"website" }, { name:"MyMedical VA website", type:"website" },
+].map(v=>({ ...v, status:"Active" }));
+
+const STATUSES = ["New","Demo Booked","Demo Done","Active Client"];
+const STATUS_META = {
+  "New":           { badge: "badge-outline", dot: "var(--text-muted)" },
+  "Demo Booked":   { badge: "badge-fill",    dot: "var(--text-muted)" },
+  "Demo Done":     { badge: "badge-warning", dot: "var(--warning)" },
+  "Active Client": { badge: "badge-good",    dot: "var(--good)" },
+};
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const YEARS = ["2025","2026","2027","2028","2029","2030"];
+const MONTH_OPTIONS = MONTH_NAMES.map((name,i)=>({ value: String(i+1).padStart(2,"0"), label: name }));
+function currentMonthKey(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function monthLabel(key){
+  if (!key || key==="all") return "";
+  const [y,m] = key.split("-");
+  return MONTH_NAMES[parseInt(m,10)-1] + " " + y;
+}
+/**
+ * Resolves the active filters into a finance scope: an exact editable month
+ * (year+month, or the real current month when neither is picked), or a
+ * read-only aggregate across a whole year or across one month in every year.
+ */
+function resolveFinanceScope(filters){
+  if (filters.year!=="all" && filters.month!=="all"){
+    const key = filters.year+"-"+filters.month;
+    return { mode:"month", key, editable:true, label: monthLabel(key) };
+  }
+  if (filters.year!=="all") return { mode:"year", year:filters.year, editable:false, label: filters.year+" (full year)" };
+  if (filters.month!=="all") return { mode:"monthAnyYear", month:filters.month, editable:false, label: MONTH_NAMES[parseInt(filters.month,10)-1]+" (all years)" };
+  const key = currentMonthKey();
+  return { mode:"month", key, editable:true, label: monthLabel(key)+" (current)" };
+}
+function financeForScope(finance, vendor, scope){
+  const rec = finance[vendor] || {};
+  if (scope.mode === "year"){
+    let budget=0, spend=0;
+    Object.keys(rec).forEach(k=>{ if (k.startsWith(scope.year+"-")){ budget+=rec[k].budget||0; spend+=rec[k].spend||0; } });
+    return { budget, spend };
+  }
+  if (scope.mode === "monthAnyYear"){
+    let budget=0, spend=0;
+    Object.keys(rec).forEach(k=>{ if (k.endsWith("-"+scope.month)){ budget+=rec[k].budget||0; spend+=rec[k].spend||0; } });
+    return { budget, spend };
+  }
+  return rec[scope.key] || { budget:0, spend:0 };
+}
+function sumFinanceForScope(names, finance, scope){
+  return names.reduce((acc,n)=>{
+    const f = financeForScope(finance, n, scope);
+    acc.budget += f.budget; acc.spend += f.spend; return acc;
+  }, { budget:0, spend:0 });
+}
+
+const METRIC_TABS = [
+  { key: "spend", label: "Spend & leads" },
+  { key: "efficiency", label: "Efficiency" },
+  { key: "funnel", label: "Funnel & demo" },
+  { key: "sales", label: "Client & sales" },
+  { key: "returns", label: "Performance & return" },
+];
+const METRIC_COLUMNS = {
+  spend: [
+    { key: "budget", label: "Allocated budget", fmt: m => fmtMoney(m.budget) },
+    { key: "spend", label: "Daily spend", fmt: m => fmtMoney(m.spend) },
+    { key: "totalLeads", label: "Total leads", fmt: m => m.totalLeads },
+    { key: "qualifiedLeads", label: "Qualified leads", fmt: m => m.qualifiedLeads },
+  ],
+  efficiency: [
+    { key: "cpl", label: "CPL", fmt: m => money(m.cpl) },
+    { key: "cpql", label: "CPQL", fmt: m => money(m.cpql) },
+    { key: "costPerQualDemo", label: "Cost / qual. demo booked", fmt: m => money(m.costPerQualDemo) },
+    { key: "costPerDemoCompleted", label: "Cost / demo completed", fmt: m => money(m.costPerDemoCompleted) },
+  ],
+  funnel: [
+    { key: "qualifiedDemosBooked", label: "Qualified demos booked", fmt: m => m.qualifiedDemosBooked },
+    { key: "totalDemosCompleted", label: "Total demos completed", fmt: m => m.totalDemosCompleted },
+  ],
+  sales: [
+    { key: "totalProjectedDeal", label: "Projected deal amount", fmt: m => fmtMoney(m.totalProjectedDeal) },
+    { key: "contractsSent", label: "Contracts sent", fmt: m => m.contractsSent },
+    { key: "activeClients", label: "Active clients", fmt: m => m.activeClients },
+    { key: "vaOnboarded", label: "VA onboarded", fmt: m => m.vaOnboarded },
+    { key: "totalClosedContract", label: "Closed contract amount", fmt: m => fmtMoney(m.totalClosedContract) },
+  ],
+  returns: [
+    { key: "conversionRate", label: "Conversion rate", fmt: m => fmtPct(m.conversionRate) },
+    { key: "roas", label: "ROAS", fmt: m => fmtX(m.roas) },
+    { key: "cac", label: "CAC", fmt: m => money(m.cac) },
+  ],
+};
+
+/* ================= metrics ================= */
+function computeGroupMetrics(list, finance){
+  const budget = finance.budget || 0, spend = finance.spend || 0;
+  const totalLeads = list.length;
+  const qualifiedLeads = list.filter(l=>l.status!=="New").length;
+  const qualifiedDemosBooked = list.filter(l=>l.status==="Demo Booked"||l.status==="Demo Done"||l.status==="Active Client").length;
+  const totalDemosCompleted = list.filter(l=>l.status==="Demo Done"||l.status==="Active Client").length;
+  const activeClients = list.filter(l=>l.status==="Active Client").length;
+  const contractsSent = list.filter(l=>l.contractSent).length;
+  const vaOnboarded = list.filter(l=>l.vaOnboarded).length;
+  const totalProjectedDeal = list.reduce((s,l)=> s + (l.projectedDealAmount||0), 0);
+  const totalClosedContract = list.reduce((s,l)=> s + (l.closedContractAmount||0), 0);
+  const conversionRate = totalLeads ? activeClients/totalLeads*100 : 0;
+  return {
+    budget, spend, totalLeads, qualifiedLeads, qualifiedDemosBooked, totalDemosCompleted,
+    activeClients, contractsSent, vaOnboarded, totalProjectedDeal, totalClosedContract, conversionRate,
+    cpl: safeDiv(spend,totalLeads), cpql: safeDiv(spend,qualifiedLeads),
+    costPerQualDemo: safeDiv(spend,qualifiedDemosBooked), costPerDemoCompleted: safeDiv(spend,totalDemosCompleted),
+    roas: safeDiv(totalClosedContract,spend), cac: safeDiv(spend,activeClients),
+    contractCloseRate: safeDiv(activeClients,contractsSent)*100,
+    vaVelocity: safeDiv(vaOnboarded,activeClients)*100,
+  };
+}
+function getFinance(finance, vendor, monthKey){
+  return (finance[vendor] && finance[vendor][monthKey]) || { budget:0, spend:0 };
+}
+
+/* ================= chart plugins ================= */
+const crosshairPlugin = {
+  id: "crosshair",
+  afterDraw(chart){
+    const active = chart.tooltip && chart.tooltip._active;
+    if (active && active.length){
+      const x = active[0].element.x;
+      const { top, bottom } = chart.chartArea;
+      const ctx = chart.ctx;
+      ctx.save(); ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom);
+      ctx.lineWidth = 1; ctx.strokeStyle = cssVar("--baseline"); ctx.stroke(); ctx.restore();
+    }
+  }
+};
+const lineEndLabels = {
+  id: "lineEndLabels",
+  afterDatasetsDraw(chart){
+    const ctx = chart.ctx; const points = [];
+    chart.data.datasets.forEach((ds, i)=>{
+      const meta = chart.getDatasetMeta(i);
+      if (meta.hidden) return;
+      for (let j = ds.data.length-1; j>=0; j--){
+        if (ds.data[j] != null){ points.push({ x: meta.data[j].x, y: meta.data[j].y, color: ds.borderColor, value: ds.data[j] }); break; }
+      }
+    });
+    points.sort((a,b)=>a.y-b.y);
+    const minGap = 14;
+    for (let i=1;i<points.length;i++){
+      if (points[i].y - points[i-1].y < minGap) points[i].y = points[i-1].y + minGap;
+    }
+    ctx.save(); ctx.font = "600 11px IBM Plex Mono, monospace"; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+    points.forEach(p=>{
+      ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = cssVar("--text-secondary"); ctx.fillText(p.value.toFixed(1)+"%", p.x+9, p.y);
+    });
+    ctx.restore();
+  }
+};
+const barValueLabels = {
+  id: "barValueLabels",
+  afterDatasetsDraw(chart){
+    const ctx = chart.ctx;
+    chart.data.datasets.forEach((ds,i)=>{
+      const meta = chart.getDatasetMeta(i);
+      meta.data.forEach((bar, idx)=>{
+        const value = ds.data[idx];
+        if (value==null) return;
+        ctx.save(); ctx.font = "600 11.5px IBM Plex Mono, monospace"; ctx.fillStyle = cssVar("--text-secondary");
+        ctx.textBaseline = "middle"; ctx.textAlign = "left";
+        ctx.fillText(ds.moneyLabels ? fmtMoneyCompact(value) : String(value), bar.x + 8, bar.y);
+        ctx.restore();
+      });
+    });
+  }
+};
+function tooltipBase(){
+  return {
+    backgroundColor: cssVar("--surface-raised"), titleColor: cssVar("--text-primary"), bodyColor: cssVar("--text-primary"),
+    borderColor: cssVar("--border"), borderWidth: 1, padding: 10,
+    titleFont: { family: "IBM Plex Sans", weight: "600", size: 12 }, bodyFont: { family: "IBM Plex Mono", size: 12 },
+    boxPadding: 4, cornerRadius: 8, displayColors: true, boxWidth: 8, boxHeight: 8,
+  };
+}
+
+/* ================= small building blocks ================= */
+function ChannelBadge({ type }){
+  const c = channelInfo(type);
+  return (
+    <span className="badge" style={{ background: "var("+c.series+"-wash)", color: "var("+c.series+")" }}>
+      <span className="dot" style={{ background: "var("+c.series+")" }}></span>{c.label}
+    </span>
+  );
+}
+function StatusBadge({ status }){
+  const m = STATUS_META[status] || STATUS_META.New;
+  return <span className={"badge "+m.badge}><span className="dot" style={{background:m.dot}}></span>{status}</span>;
+}
+function ToggleBadge({ value, onLabel, offLabel, onClick }){
+  const cls = value ? "badge-good" : "badge-fill";
+  const dotColor = value ? "var(--good)" : "var(--text-muted)";
+  const label = value ? (onLabel||"Yes") : (offLabel||"No");
+  if (!onClick) return <span className={"badge "+cls}><span className="dot" style={{background:dotColor}}></span>{label}</span>;
+  return (
+    <button type="button" className={"badge "+cls} onClick={onClick} title="Click to toggle">
+      <span className="dot" style={{background:dotColor}}></span>{label}
+    </button>
+  );
+}
+function Segmented({ options, value, onChange }){
+  return (
+    <div className="segmented">
+      {options.map(o=>(
+        <button key={o.value} type="button" className={value===o.value?"active":""} onClick={()=>onChange(o.value)}>
+          {o.dotColor && <span className="dot" style={{background:o.dotColor}}></span>}
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+function Sparkline({ values, color }){
+  const nums = values.filter(v=>v!=null);
+  if (!nums.length) return null;
+  const w=96,h=26;
+  const max = Math.max(...nums,1), min = Math.min(...nums,0), range=(max-min)||1, n=values.length;
+  const pts = [];
+  values.forEach((v,i)=>{ if (v==null) return; const x=n>1?(i/(n-1))*w:w/2; const y=h-((v-min)/range)*h; pts.push(x.toFixed(1)+","+y.toFixed(1)); });
+  return <svg viewBox={"0 0 "+w+" "+h} width={w} height={h} className="mt-2" preserveAspectRatio="none"><polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
+
+/* ================= KPI row ================= */
+function KpiRow({ metrics, weeklyTotals, weeklyConv, topVendorLabel, monthLabelText }){
+  const tiles = [
+    { label:"Budget vs daily spend", isBudget:true },
+    { label:"Total leads", value: metrics.totalLeads.toLocaleString("en-US"), spark:<Sparkline values={weeklyTotals} color="var(--accent)" /> },
+    { label:"Qualified leads", value: metrics.qualifiedLeads.toLocaleString("en-US"), sub: fmtPct(safeDiv(metrics.qualifiedLeads,metrics.totalLeads)*100)+" of leads" },
+    { label:"Cost per lead", value: money(metrics.cpl) },
+    { label:"Conversion rate", value: fmtPct(metrics.conversionRate), spark:<Sparkline values={weeklyConv} color="var(--good)" /> },
+    { label:"ROAS", value: fmtX(metrics.roas) },
+    { label:"CAC", value: money(metrics.cac) },
+    { label:"Closed contract amount", value: fmtMoneyCompact(metrics.totalClosedContract), sub: fmtMoney(metrics.totalClosedContract) },
+  ];
+  const util = safeDiv(metrics.spend, metrics.budget) * 100;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {tiles.map((t,i)=>(
+        <div key={i} className="card p-4 flex flex-col justify-between min-h-[104px]">
+          <div className="eyebrow">{t.label}</div>
+          {t.isBudget ? (
+            <div className="mt-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="kpi-value" style={{fontSize:"17px"}}>{fmtMoneyCompact(metrics.spend)}</span>
+                <span className="text-[11px] font-mono" style={{color:"var(--text-muted)"}}>of {fmtMoneyCompact(metrics.budget)}</span>
+              </div>
+              <div className="meter-track mt-2"><div className={"meter-fill"+(util>100?" over":"")} style={{width:Math.min(100,util)+"%"}}></div></div>
+              <div className="text-[11px] mt-1 font-mono" style={{color: util>100 ? "var(--critical)" : "var(--text-muted)"}}>{util.toFixed(0)}% of {monthLabelText}{util>100?" · over budget":""}</div>
+            </div>
+          ) : (
+            <React.Fragment>
+              <div className="kpi-value mt-1.5 truncate" title={String(t.value)}>{t.value}</div>
+              {t.sub!=null && <div className="text-[11px] font-mono mt-1" style={{color:"var(--text-muted)"}}>{t.sub}</div>}
+              {t.spark}
+            </React.Fragment>
+          )}
+        </div>
+      ))}
+      <div className="card p-4 flex flex-col justify-between min-h-[104px] col-span-2 md:col-span-4 lg:col-span-1">
+        <div className="eyebrow">Top vendor</div>
+        {topVendorLabel.name ? (
+          <React.Fragment>
+            <div className="kpi-value mt-1.5 leading-tight" style={{fontSize:"16px"}}>{topVendorLabel.name}</div>
+            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+              <ChannelBadge type={topVendorLabel.type} />
+              <span className="font-mono text-[12px]" style={{color:"var(--text-muted)"}}>{fmtMoneyCompact(topVendorLabel.revenue)}</span>
+            </div>
+          </React.Fragment>
+        ) : (
+          <div className="kpi-value mt-1.5 leading-tight" style={{fontSize:"16px", color:"var(--text-muted)"}}>No leads yet</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ================= insights panel ================= */
+function InsightsPanel({ vendorRows, overallMetrics, periodLabel }){
+  const withSpend = vendorRows.filter(r=>r.spend>0);
+  let topRoi = null;
+  for (const r of withSpend){ if (!topRoi || r.roas > topRoi.roas) topRoi = r; }
+  const withDemos = vendorRows.filter(r=>r.totalDemosCompleted>0 && r.spend>0);
+  let bestCpd = null;
+  for (const r of withDemos){ if (!bestCpd || r.costPerDemoCompleted < bestCpd.costPerDemoCompleted) bestCpd = r; }
+
+  const cards = [
+    {
+      title: "Top ROI vendor",
+      value: topRoi ? fmtX(topRoi.roas) : "—",
+      detail: topRoi ? topRoi.key+" ("+channelInfo(topRoi.type).label+") is returning "+fmtX(topRoi.roas)+" on every dollar spent for "+periodLabel+" — your most efficient vendor this period." : "Add spend and a closed contract amount to see your top-performing vendor for "+periodLabel+".",
+    },
+    {
+      title: "Best cost per demo",
+      value: bestCpd ? money(bestCpd.costPerDemoCompleted) : "—",
+      detail: bestCpd ? bestCpd.key+" ("+channelInfo(bestCpd.type).label+") completes demos for "+money(bestCpd.costPerDemoCompleted)+" each in "+periodLabel+" — your most cost-effective vendor for demos." : "Complete a demo with recorded spend to see your most cost-effective vendor.",
+    },
+    {
+      title: "Contract closing efficiency",
+      value: overallMetrics.contractsSent ? fmtPct(overallMetrics.contractCloseRate) : "—",
+      detail: overallMetrics.contractsSent ? overallMetrics.activeClients+" of "+overallMetrics.contractsSent+" sent contracts ("+fmtPct(overallMetrics.contractCloseRate)+") have become active clients." : "Mark contracts as sent to track how many convert to active clients.",
+    },
+    {
+      title: "VA onboarding velocity",
+      value: overallMetrics.activeClients ? fmtPct(overallMetrics.vaVelocity) : "—",
+      detail: overallMetrics.activeClients ? overallMetrics.vaOnboarded+" of "+overallMetrics.activeClients+" active clients ("+fmtPct(overallMetrics.vaVelocity)+") have an onboarded VA." : "Mark active clients as VA onboarded to track onboarding pace.",
+    },
+  ];
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="eyebrow">Real-time insights</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {cards.map((c,i)=>(
+          <div key={i} className="insight-card p-4">
+            <div className="flex items-baseline justify-between gap-2 mb-1.5">
+              <span className="text-[12.5px] font-semibold" style={{color:"var(--text-secondary)"}}>{c.title}</span>
+              <span className="kpi-value" style={{fontSize:"18px"}}>{c.value}</span>
+            </div>
+            <p className="text-[12px] leading-snug" style={{color:"var(--text-muted)"}}>{c.detail}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================= channel split ================= */
+function ChannelSplit({ channelRows }){
+  const total = channelRows.reduce((s,c)=>s+c.totalLeads,0);
+  if (!total) return <div className="empty-state">No leads match the current filters.</div>;
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="w-full flex rounded-full overflow-hidden" style={{height:"14px", background:"var(--gridline)"}}>
+        {channelRows.map((c,i)=>{
+          const pct = total ? c.totalLeads/total*100 : 0;
+          if (pct<=0) return null;
+          return <div key={c.key} style={{width:pct+"%", background:"var("+c.series+")", borderRight: i<channelRows.length-1 ? "2px solid var(--surface-1)" : "none"}}></div>;
+        })}
+      </div>
+      {channelRows.map(c=>{
+        const pct = total ? c.totalLeads/total*100 : 0;
+        return (
+          <div key={c.key} className="flex items-center justify-between gap-3 text-[13px]">
+            <div className="flex items-center gap-2 min-w-0"><span className="dot" style={{background:"var("+c.series+")"}}></span><span className="font-medium truncate">{c.label}</span></div>
+            <div className="flex items-center gap-3 font-mono text-[12px] flex-none" style={{color:"var(--text-secondary)"}}>
+              <span>{c.totalLeads} {c.totalLeads===1?"lead":"leads"}</span><span>{pct.toFixed(0)}%</span>
+              <span style={{color:"var(--text-muted)"}}>{fmtPct(c.conversionRate)} conv</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ================= line / bar chart components ================= */
+function ConversionChart({ series, themeTick }){
+  const canvasRef = useRef(null); const chartRef = useRef(null);
+  useEffect(()=>{
+    const ctx = canvasRef.current.getContext("2d");
+    chartRef.current = new Chart(ctx, {
+      type: "line",
+      data: { labels: [], datasets: CHANNELS.map(c=>({
+        label: c.label, data: [], borderColor: cssVar(c.series), backgroundColor: hexToRgba(cssVar(c.series),0.1),
+        pointRadius:3, pointHoverRadius:5, pointBackgroundColor: cssVar(c.series), pointBorderColor: cssVar("--surface-1"),
+        pointBorderWidth:2, borderWidth:2, tension:0.3, fill:true, spanGaps:true,
+      })) },
+      options: {
+        responsive:true, maintainAspectRatio:false, layout:{padding:{right:46}},
+        interaction:{mode:"index",intersect:false},
+        plugins:{
+          legend:{ position:"top", align:"start", labels:{ boxWidth:8, boxHeight:8, usePointStyle:true, pointStyle:"circle", color: cssVar("--text-secondary"), font:{family:"IBM Plex Sans", size:12} } },
+          tooltip: Object.assign(tooltipBase(), { callbacks:{ label: c=>" "+c.dataset.label+": "+c.parsed.y.toFixed(1)+"%" } }),
+        },
+        scales:{
+          x:{ grid:{display:false}, border:{color:cssVar("--baseline")}, ticks:{color:cssVar("--text-muted"), font:{size:11}} },
+          y:{ min:0, suggestedMax:100, grid:{color:cssVar("--gridline")}, border:{display:false}, ticks:{color:cssVar("--text-muted"), font:{size:11}, callback:v=>v+"%"} },
+        },
+      },
+      plugins:[crosshairPlugin, lineEndLabels],
+    });
+    return ()=>chartRef.current.destroy();
+  }, []);
+  useEffect(()=>{
+    const ch = chartRef.current; if (!ch) return;
+    ch.data.labels = series.labels;
+    CHANNELS.forEach((c,i)=>{
+      const ds = ch.data.datasets[i];
+      ds.data = series.series[c.key] || [];
+      ds.borderColor = cssVar(c.series); ds.pointBackgroundColor = cssVar(c.series); ds.pointBorderColor = cssVar("--surface-1"); ds.backgroundColor = hexToRgba(cssVar(c.series),0.1);
+    });
+    ch.options.plugins.legend.labels.color = cssVar("--text-secondary");
+    ch.options.plugins.tooltip.backgroundColor = cssVar("--surface-raised"); ch.options.plugins.tooltip.titleColor = cssVar("--text-primary"); ch.options.plugins.tooltip.bodyColor = cssVar("--text-primary"); ch.options.plugins.tooltip.borderColor = cssVar("--border");
+    ch.options.scales.x.ticks.color = cssVar("--text-muted"); ch.options.scales.x.border.color = cssVar("--baseline");
+    ch.options.scales.y.ticks.color = cssVar("--text-muted"); ch.options.scales.y.grid.color = cssVar("--gridline");
+    ch.update();
+  }, [series, themeTick]);
+  return <canvas ref={canvasRef}></canvas>;
+}
+
+function RevenueByVendorChart({ rows, themeTick }){
+  const canvasRef = useRef(null); const chartRef = useRef(null);
+  useEffect(()=>{
+    const ctx = canvasRef.current.getContext("2d");
+    chartRef.current = new Chart(ctx, {
+      type:"bar",
+      data:{ labels:[], datasets:[{ data:[], backgroundColor:[], borderRadius:4, barThickness:20, moneyLabels:true }] },
+      options:{
+        indexAxis:"y", responsive:true, maintainAspectRatio:false, layout:{padding:{right:54}},
+        interaction:{mode:"nearest",intersect:true},
+        plugins:{ legend:{display:false}, tooltip: Object.assign(tooltipBase(), { displayColors:false, callbacks:{ title: it=>it[0].label, label: c=>" Closed contract: "+fmtMoney(c.parsed.x) } }) },
+        scales:{
+          x:{ grid:{color:cssVar("--gridline")}, border:{display:false}, ticks:{color:cssVar("--text-muted"), font:{size:11}, callback:v=>fmtMoneyCompact(v)} },
+          y:{ grid:{display:false}, border:{display:false}, ticks:{color:cssVar("--text-secondary"), font:{size:12, weight:"600"}} },
+        },
+      },
+      plugins:[barValueLabels],
+    });
+    return ()=>chartRef.current.destroy();
+  }, []);
+  useEffect(()=>{
+    const ch = chartRef.current; if (!ch) return;
+    ch.data.labels = rows.map(r=>r.key);
+    ch.data.datasets[0].data = rows.map(r=>r.totalClosedContract);
+    ch.data.datasets[0].backgroundColor = rows.map(r=> cssVar(channelInfo(r.type).series));
+    const maxV = Math.max(1, ...rows.map(r=>r.totalClosedContract));
+    ch.options.scales.x.max = maxV*1.28;
+    ch.options.scales.x.grid.color = cssVar("--gridline"); ch.options.scales.x.ticks.color = cssVar("--text-muted");
+    ch.options.scales.y.ticks.color = cssVar("--text-secondary");
+    ch.options.plugins.tooltip.backgroundColor = cssVar("--surface-raised"); ch.options.plugins.tooltip.titleColor = cssVar("--text-primary"); ch.options.plugins.tooltip.bodyColor = cssVar("--text-primary"); ch.options.plugins.tooltip.borderColor = cssVar("--border");
+    ch.update();
+  }, [rows, themeTick]);
+  return <canvas ref={canvasRef}></canvas>;
+}
+
+function FunnelChart({ metrics, themeTick }){
+  const canvasRef = useRef(null); const chartRef = useRef(null);
+  const stages = [
+    { label:"Total leads", value: metrics.totalLeads },
+    { label:"Qualified leads", value: metrics.qualifiedLeads },
+    { label:"Demos booked", value: metrics.qualifiedDemosBooked },
+    { label:"Demos completed", value: metrics.totalDemosCompleted },
+    { label:"Active clients", value: metrics.activeClients },
+  ];
+  useEffect(()=>{
+    const ctx = canvasRef.current.getContext("2d");
+    chartRef.current = new Chart(ctx, {
+      type:"bar",
+      data:{ labels:[], datasets:[{ data:[], backgroundColor:[], borderRadius:4, barThickness:22 }] },
+      options:{
+        indexAxis:"y", responsive:true, maintainAspectRatio:false, layout:{padding:{right:40}},
+        plugins:{ legend:{display:false}, tooltip: Object.assign(tooltipBase(), { displayColors:false, callbacks:{ title: it=>it[0].label, label: c=>" "+c.parsed.x.toLocaleString("en-US") } }) },
+        scales:{
+          x:{ grid:{color:cssVar("--gridline")}, border:{display:false}, ticks:{color:cssVar("--text-muted"), font:{size:11}} },
+          y:{ grid:{display:false}, border:{display:false}, ticks:{color:cssVar("--text-secondary"), font:{size:12, weight:"600"}} },
+        },
+      },
+      plugins:[barValueLabels],
+    });
+    return ()=>chartRef.current.destroy();
+  }, []);
+  useEffect(()=>{
+    const ch = chartRef.current; if (!ch) return;
+    const base = cssVar("--series-1");
+    const alphas = [0.32,0.48,0.64,0.8,1];
+    ch.data.labels = stages.map(s=>s.label);
+    ch.data.datasets[0].data = stages.map(s=>s.value);
+    ch.data.datasets[0].backgroundColor = alphas.map(a=>hexToRgba(base,a));
+    ch.options.scales.x.max = Math.max(1, stages[0].value) * 1.15;
+    ch.options.scales.x.grid.color = cssVar("--gridline"); ch.options.scales.x.ticks.color = cssVar("--text-muted");
+    ch.options.scales.y.ticks.color = cssVar("--text-secondary");
+    ch.options.plugins.tooltip.backgroundColor = cssVar("--surface-raised"); ch.options.plugins.tooltip.titleColor = cssVar("--text-primary"); ch.options.plugins.tooltip.bodyColor = cssVar("--text-primary"); ch.options.plugins.tooltip.borderColor = cssVar("--border");
+    ch.update();
+  }, [metrics, themeTick]);
+  return <canvas ref={canvasRef}></canvas>;
+}
+
+/* ================= vendor status badge ================= */
+function VendorStatusBadge({ status, onClick }){
+  const active = status === "Active";
+  return <ToggleBadge value={active} onLabel="Active" offLabel="Offboarded" onClick={onClick} />;
+}
+
+/* ================= vendor finance panel ================= */
+function VendorFinancePanel({ vendors, finance, scope, onChange, onToggleStatus, onAddVendorClick, isAdmin }){
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-0.5">
+        <h2 className="section-title">Vendor budget &amp; daily spend</h2>
+        {isAdmin && <button type="button" className="btn btn-ghost" onClick={onAddVendorClick}>
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1V13M1 7H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          Add vendor
+        </button>}
+      </div>
+      <p className="text-[12px] mt-0.5 mb-3" style={{color:"var(--text-muted)"}}>
+        {scope.editable
+          ? <React.Fragment>Editing <strong style={{color:"var(--text-secondary)"}}>{scope.label}</strong> — figures are saved per month, so past months stay reviewable. Both start at $0.</React.Fragment>
+          : <React.Fragment>Showing totals for <strong style={{color:"var(--text-secondary)"}}>{scope.label}</strong> — read-only. Pick one Year <em>and</em> one Month in the filter above to edit that month's numbers.</React.Fragment>}
+      </p>
+      <div className="table-wrap scrollbar-thin">
+        <table style={{minWidth:700}}>
+          <thead><tr><th>Vendor</th><th>Channel</th><th>Status</th><th>Allocated budget</th><th>Daily spend</th><th>Utilization</th></tr></thead>
+          <tbody>
+            {vendors.map(v=>{
+              const f = financeForScope(finance, v.name, scope);
+              const util = safeDiv(f.spend, f.budget)*100;
+              return (
+                <tr key={v.name}>
+                  <td className="font-medium">{v.name}</td>
+                  <td><ChannelBadge type={v.type} /></td>
+                  <td><VendorStatusBadge status={v.status} onClick={isAdmin ? ()=>onToggleStatus(v.name) : undefined} /></td>
+                  <td>
+                    {scope.editable ? (
+                      <div className="relative" style={{maxWidth:130}}>
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px]" style={{color:"var(--text-muted)"}}>$</span>
+                        <input disabled={!isAdmin} className="input" style={{paddingLeft:18, fontFamily:"var(--font-mono)"}} type="number" min="0" step="100"
+                          value={f.budget} onChange={e=>onChange(v.name,"budget", Math.max(0, parseFloat(e.target.value)||0))} />
+                      </div>
+                    ) : <span className="num-cell">{fmtMoney(f.budget)}</span>}
+                  </td>
+                  <td>
+                    {scope.editable ? (
+                      <div className="relative" style={{maxWidth:130}}>
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px]" style={{color:"var(--text-muted)"}}>$</span>
+                        <input disabled={!isAdmin} className="input" style={{paddingLeft:18, fontFamily:"var(--font-mono)"}} type="number" min="0" step="100"
+                          value={f.spend} onChange={e=>onChange(v.name,"spend", Math.max(0, parseFloat(e.target.value)||0))} />
+                      </div>
+                    ) : <span className="num-cell">{fmtMoney(f.spend)}</span>}
+                  </td>
+                  <td style={{minWidth:140}}>
+                    <div className="meter-track"><div className={"meter-fill"+(util>100?" over":"")} style={{width:Math.min(100,util)+"%"}}></div></div>
+                    <div className="text-[11px] font-mono mt-1" style={{color: util>100?"var(--critical)":"var(--text-muted)"}}>{util.toFixed(0)}%</div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ================= channel summary cards ================= */
+function ChannelSummaryCards({ channelRows, activeTab }){
+  const cols = METRIC_COLUMNS[activeTab];
+  const maxRate = Math.max(1, ...channelRows.map(c=>c.conversionRate));
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {channelRows.map(c=>(
+        <div key={c.key} className="card p-4">
+          <div className="flex items-center gap-2 mb-3"><span className="dot" style={{background:"var("+c.series+")"}}></span><h3 className="section-title" style={{fontSize:14}}>{c.label}</h3></div>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            {cols.map(col=>(
+              <div key={col.key}>
+                <div className="text-[11px]" style={{color:"var(--text-muted)"}}>{col.label}</div>
+                <div className="font-mono font-semibold text-[15px] mt-0.5">{col.fmt(c)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between text-[11.5px] mb-1.5" style={{color:"var(--text-muted)"}}><span>Conversion rate</span><span className="font-mono" style={{color:"var(--text-primary)"}}>{fmtPct(c.conversionRate)}</span></div>
+          <div className="meter-track"><div className="meter-fill" style={{width:(c.conversionRate/maxRate*100)+"%", background:"var("+c.series+")"}}></div></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ================= vendor table ================= */
+function VendorTable({ rows, activeTab, sortState, onSort }){
+  const cols = METRIC_COLUMNS[activeTab];
+  const sorted = useMemo(()=>{
+    const copy = rows.slice();
+    copy.sort((a,b)=>{
+      let av = a[sortState.key], bv = b[sortState.key];
+      if (av === undefined) av = a.key; if (bv === undefined) bv = b.key;
+      if (typeof av === "string") return sortState.dir==="asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortState.dir==="asc" ? av-bv : bv-av;
+    });
+    return copy;
+  }, [rows, sortState]);
+  function Th({ colKey, children }){
+    return <th onClick={()=>onSort(colKey)}>{children}{sortState.key===colKey ? (sortState.dir==="asc"?" ▲":" ▼") : ""}</th>;
+  }
+  if (!sorted.length) return <div className="empty-state">No vendors match the current filters.</div>;
+  return (
+    <div className="table-wrap scrollbar-thin" style={{maxHeight:340}}>
+      <table>
+        <thead>
+          <tr>
+            <Th colKey="key">Vendor</Th>
+            <Th colKey="type">Channel</Th>
+            <Th colKey="status">Status</Th>
+            {cols.map(c=><Th key={c.key} colKey={c.key}>{c.label}</Th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map(r=>(
+            <tr key={r.key}>
+              <td className="font-medium">{r.key}</td>
+              <td><ChannelBadge type={r.type} /></td>
+              <td><VendorStatusBadge status={r.status} /></td>
+              {cols.map(c=><td key={c.key} className="num-cell">{c.fmt(r)}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ================= leads table ================= */
+function LeadsTable({ leads, totalCount, sortState, onSort, onStatusChange, onToggleContract, onToggleVA, onDelete, onEdit, isAdmin }){
+  const sorted = useMemo(()=>{ const copy=leads.slice(); const {key,dir}=sortState; copy.sort((a,b)=>{let av=a[key],bv=b[key]; if(key==="closedContractAmount"||key==="projectedDealAmount"){av=av||0;bv=bv||0;} if(key==="email"){av=av||"";bv=bv||"";} if(typeof av==="string") return dir==="asc"?av.localeCompare(bv):bv.localeCompare(av); return dir==="asc"?av-bv:bv-av;}); return copy; },[leads,sortState]);
+  function Th({colKey,children}){return <th onClick={()=>onSort(colKey)}>{children}{sortState.key===colKey?(sortState.dir==="asc"?" ▲":" ▼"):""}</th>}
+  return <div><div className="flex items-center justify-between mb-3"><h2 className="section-title">All leads</h2><span className="text-[12px] font-mono" style={{color:"var(--text-muted)"}}>{sorted.length} of {totalCount} leads</span></div>
+    <div className="card table-wrap scrollbar-thin" style={{maxHeight:480}}><table><thead><tr><Th colKey="name">Lead name</Th><Th colKey="email">Email</Th><th>HubSpot</th><Th colKey="vendor">Vendor</Th><Th colKey="dateAcquired">Date acquired</Th><Th colKey="status">Status</Th><Th colKey="projectedDealAmount">Projected deal</Th><Th colKey="closedContractAmount">Closed contract</Th><Th colKey="contractSent">Contract sent</Th><Th colKey="vaOnboarded">VA onboarded</Th><th></th></tr></thead>
+      <tbody>{sorted.length===0&&<tr><td colSpan="11"><div className="empty-state">No leads match your filters. Try clearing them.</div></td></tr>}{sorted.map(l=><tr key={l.id}>
+        <td className="font-medium">{l.name}</td><td style={{color:"var(--text-secondary)"}}>{l.email?<a href={"mailto:"+l.email} style={{color:"var(--accent)"}}>{l.email}</a>:"—"}</td>
+        <td>{l.hubspotUrl?<a href={l.hubspotUrl} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{padding:"4px 9px",fontSize:11}}>Open ↗</a>:<span style={{color:"var(--text-muted)"}}>—</span>}</td>
+        <td><ChannelBadge type={l.vendorType}/> <span className="ml-1 text-[12px]" style={{color:"var(--text-secondary)"}}>{l.vendor}</span></td><td className="num-cell" style={{color:"var(--text-secondary)"}}>{fmtDate(l.dateAcquired)}</td>
+        <td><select disabled={!isAdmin} className="select" style={{width:"auto",padding:"5px 8px",fontSize:12}} value={l.status} onChange={e=>onStatusChange(l.id,e.target.value)}>{STATUSES.map(x=><option key={x} value={x}>{x}</option>)}</select></td>
+        <td className="num-cell">{l.projectedDealAmount?fmtMoney(l.projectedDealAmount):"—"}</td><td className="num-cell">{l.closedContractAmount?fmtMoney(l.closedContractAmount):"—"}</td>
+        <td><ToggleBadge value={l.contractSent} onClick={isAdmin?()=>onToggleContract(l.id):undefined}/></td><td><ToggleBadge value={l.vaOnboarded} onClick={isAdmin?()=>onToggleVA(l.id):undefined}/></td>
+        <td>{isAdmin&&<div className="flex items-center gap-1"><button className="btn btn-ghost" style={{padding:4}} title="Edit lead" onClick={()=>onEdit(l)}>✎</button><button className="btn-danger-ghost btn" style={{padding:4}} title="Delete lead" onClick={()=>onDelete(l.id)}>⌫</button></div>}</td>
+      </tr>)}</tbody></table></div></div>;
+}
+
+/* ================= add lead modal ================= */
+const EMPTY_FORM = { name:"", email:"", hubspotUrl:"", vendorType:"meta", vendor:"", dateAcquired:"", status:"New", projectedDealAmount:0, closedContractAmount:0, contractSent:false, vaOnboarded:false };
+function AddLeadModal({ vendors, onClose, onSubmit }){
+  const activeByType = useMemo(()=>{
+    const m = {};
+    CHANNELS.forEach(c=>{ m[c.key] = vendors.filter(v=>v.type===c.key && v.status==="Active"); });
+    return m;
+  }, [vendors]);
+  const initialType = CHANNELS.find(c=>activeByType[c.key].length)?.key || "meta";
+  const [form, setForm] = useState(()=>({
+    ...EMPTY_FORM,
+    vendorType: initialType,
+    vendor: (activeByType[initialType][0] && activeByType[initialType][0].name) || "",
+    dateAcquired: new Date().toISOString().slice(0,10),
+  }));
+  const [errors, setErrors] = useState({});
+  const nameRef = useRef(null);
+  useEffect(()=>{ nameRef.current && nameRef.current.focus(); }, []);
+  useEffect(()=>{
+    function onKey(e){ if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return ()=>document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function setField(key, value){ setForm(f=>({ ...f, [key]: value })); }
+  function handleTypeChange(type){
+    const opts = activeByType[type];
+    setForm(f=>({ ...f, vendorType: type, vendor: (opts[0] && opts[0].name) || "" }));
+  }
+  function handleSubmit(e){
+    e.preventDefault();
+    const errs = {};
+    if (!form.name.trim()) errs.name = "Enter the lead's name.";
+    if (!form.vendor) errs.vendor = "Choose a vendor.";
+    if (!form.dateAcquired) errs.dateAcquired = "Choose a date.";
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+    onSubmit({
+      ...form,
+      name: form.name.trim(),
+      email: form.email.trim(),
+      hubspotUrl: form.hubspotUrl.trim(),
+      projectedDealAmount: Math.max(0, parseFloat(form.projectedDealAmount)||0),
+      closedContractAmount: Math.max(0, parseFloat(form.closedContractAmount)||0),
+    });
+  }
+  const vendorOptions = activeByType[form.vendorType];
+  return (
+    <div className="modal-overlay" onMouseDown={e=>{ if (e.target===e.currentTarget) onClose(); }}>
+      <div className="card w-full max-w-[460px] p-5" role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 id="modal-title" className="font-display font-semibold text-[16px]">Add a lead</h3>
+          <button type="button" className="btn-danger-ghost btn" style={{padding:4}} onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5" noValidate>
+          <div>
+            <label className="field-label" htmlFor="f-name">Lead name</label>
+            <input id="f-name" ref={nameRef} className="input" type="text" placeholder="e.g. Jordan Blake" autoComplete="off"
+              value={form.name} onChange={e=>setField("name", e.target.value)} />
+            <div className="err-text">{errors.name}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="field-label" htmlFor="f-email">Lead email <span style={{fontWeight:400, color:"var(--text-muted)"}}>(optional)</span></label>
+              <input id="f-email" className="input" type="email" placeholder="jordan@example.com" autoComplete="off"
+                value={form.email} onChange={e=>setField("email", e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="f-hubspot">HubSpot URL <span style={{fontWeight:400, color:"var(--text-muted)"}}>(optional)</span></label>
+              <input id="f-hubspot" className="input" type="url" placeholder="https://app.hubspot.com/…" autoComplete="off"
+                value={form.hubspotUrl} onChange={e=>setField("hubspotUrl", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="field-label">Channel</label>
+              <select className="select" value={form.vendorType} onChange={e=>handleTypeChange(e.target.value)}>
+                {CHANNELS.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="f-date">Date acquired</label>
+              <input id="f-date" className="input" type="date" min="2025-01-01" max="2030-12-31" value={form.dateAcquired} onChange={e=>setField("dateAcquired", e.target.value)} />
+              <div className="err-text">{errors.dateAcquired}</div>
+            </div>
+          </div>
+          <div>
+            <label className="field-label">Vendor</label>
+            <select className="select" value={form.vendor} onChange={e=>setField("vendor", e.target.value)} disabled={!vendorOptions.length}>
+              {vendorOptions.length
+                ? vendorOptions.map(v=><option key={v.name} value={v.name}>{v.name}</option>)
+                : <option value="">No active vendors in this channel</option>}
+            </select>
+            {!vendorOptions.length && <div className="field-hint">Add a vendor or reactivate an offboarded one in the budget &amp; spend panel first.</div>}
+            <div className="err-text">{errors.vendor}</div>
+          </div>
+          <div>
+            <label className="field-label">Lead status</label>
+            <select className="select" value={form.status} onChange={e=>setField("status", e.target.value)}>
+              {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="field-label" htmlFor="f-proj">Projected deal amount</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px]" style={{color:"var(--text-muted)"}}>$</span>
+                <input id="f-proj" className="input" style={{paddingLeft:22}} type="number" min="0" step="1"
+                  value={form.projectedDealAmount} onChange={e=>setField("projectedDealAmount", e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="f-closed">Closed contract amount</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px]" style={{color:"var(--text-muted)"}}>$</span>
+                <input id="f-closed" className="input" style={{paddingLeft:22}} type="number" min="0" step="1"
+                  value={form.closedContractAmount} onChange={e=>setField("closedContractAmount", e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-5">
+            <label className="flex items-center gap-2 text-[13px] font-medium" style={{color:"var(--text-secondary)"}}>
+              <input type="checkbox" className="checkbox" checked={form.contractSent} onChange={e=>setField("contractSent", e.target.checked)} />
+              Contract sent
+            </label>
+            <label className="flex items-center gap-2 text-[13px] font-medium" style={{color:"var(--text-secondary)"}}>
+              <input type="checkbox" className="checkbox" checked={form.vaOnboarded} onChange={e=>setField("vaOnboarded", e.target.checked)} />
+              VA onboarded
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-2">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={!vendorOptions.length}>Add lead</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditLeadModal({lead,vendors,onClose,onSubmit}){const [form,setForm]=useState({...lead}),[error,setError]=useState("");const opts=vendors.filter(v=>v.type===form.vendorType&&(v.status==="Active"||v.name===form.vendor));function setF(k,v){setForm(f=>({...f,[k]:v}));}function submit(e){e.preventDefault();if(!form.name.trim()){setError("Enter the lead's name.");return;}if(!form.vendor){setError("Choose a vendor.");return;}if(!form.dateAcquired){setError("Choose a date.");return;}onSubmit({...form,name:form.name.trim(),email:(form.email||"").trim(),hubspotUrl:(form.hubspotUrl||"").trim(),projectedDealAmount:Math.max(0,parseFloat(form.projectedDealAmount)||0),closedContractAmount:Math.max(0,parseFloat(form.closedContractAmount)||0)});}return <div className="modal-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><div className="card w-full max-w-[460px] p-5" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}><div className="flex items-center justify-between mb-4"><h3 className="font-display font-semibold text-[16px]">Edit lead</h3><button type="button" className="btn-danger-ghost btn" style={{padding:4}} onClick={onClose}>✕</button></div><form onSubmit={submit} className="flex flex-col gap-3.5"><div><label className="field-label">Lead name</label><input className="input" value={form.name} onChange={e=>setF("name",e.target.value)}/></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Lead email</label><input className="input" type="email" value={form.email||""} onChange={e=>setF("email",e.target.value)}/></div><div><label className="field-label">HubSpot URL</label><input className="input" type="url" value={form.hubspotUrl||""} onChange={e=>setF("hubspotUrl",e.target.value)}/></div></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Channel</label><select className="select" value={form.vendorType} onChange={e=>{const t=e.target.value,v=vendors.find(x=>x.type===t&&x.status==="Active");setForm(f=>({...f,vendorType:t,vendor:v?.name||""}))}}>{CHANNELS.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></div><div><label className="field-label">Date acquired</label><input className="input" type="date" value={form.dateAcquired} onChange={e=>setF("dateAcquired",e.target.value)}/></div></div><div><label className="field-label">Vendor</label><select className="select" value={form.vendor} onChange={e=>setF("vendor",e.target.value)}>{opts.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div><div><label className="field-label">Lead status</label><select className="select" value={form.status} onChange={e=>setF("status",e.target.value)}>{STATUSES.map(x=><option key={x} value={x}>{x}</option>)}</select></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Projected deal amount</label><input className="input" type="number" min="0" value={form.projectedDealAmount||0} onChange={e=>setF("projectedDealAmount",e.target.value)}/></div><div><label className="field-label">Closed contract amount</label><input className="input" type="number" min="0" value={form.closedContractAmount||0} onChange={e=>setF("closedContractAmount",e.target.value)}/></div></div><div className="flex items-center gap-5"><label className="flex items-center gap-2 text-[13px] font-medium"><input type="checkbox" className="checkbox" checked={!!form.contractSent} onChange={e=>setF("contractSent",e.target.checked)}/> Contract sent</label><label className="flex items-center gap-2 text-[13px] font-medium"><input type="checkbox" className="checkbox" checked={!!form.vaOnboarded} onChange={e=>setF("vaOnboarded",e.target.checked)}/> VA onboarded</label></div>{error&&<div className="err-text">{error}</div>}<div className="flex justify-end gap-2 mt-2"><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button type="submit" className="btn btn-primary">Save changes</button></div></form></div></div>}
+
+/* ================= add vendor modal ================= */
+function AddVendorModal({ existingNames, onClose, onSubmit }){
+  const [name, setName] = useState("");
+  const [type, setType] = useState("meta");
+  const [error, setError] = useState("");
+  const nameRef = useRef(null);
+  useEffect(()=>{ nameRef.current && nameRef.current.focus(); }, []);
+  useEffect(()=>{
+    function onKey(e){ if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return ()=>document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function handleSubmit(e){
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed){ setError("Enter a vendor name."); return; }
+    if (existingNames.some(n=>n.toLowerCase()===trimmed.toLowerCase())){ setError("A vendor with this name already exists."); return; }
+    onSubmit({ name: trimmed, type });
+  }
+
+  return (
+    <div className="modal-overlay" onMouseDown={e=>{ if (e.target===e.currentTarget) onClose(); }}>
+      <div className="card w-full max-w-[400px] p-5" role="dialog" aria-modal="true" aria-labelledby="vendor-modal-title" onMouseDown={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 id="vendor-modal-title" className="font-display font-semibold text-[16px]">Add a vendor</h3>
+          <button type="button" className="btn-danger-ghost btn" style={{padding:4}} onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5" noValidate>
+          <div>
+            <label className="field-label" htmlFor="v-name">Vendor name</label>
+            <input id="v-name" ref={nameRef} className="input" type="text" placeholder="e.g. Northstar Media" autoComplete="off"
+              value={name} onChange={e=>{ setName(e.target.value); setError(""); }} />
+            <div className="err-text">{error}</div>
+          </div>
+          <div>
+            <label className="field-label">Channel</label>
+            <select className="select" value={type} onChange={e=>setType(e.target.value)}>
+              {CHANNELS.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Add vendor</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ================= export menu + preview modal ================= */
+function ExportMenu({ onExport }){
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useEffect(()=>{
+    function onDocClick(e){ if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", onDocClick);
+    return ()=>document.removeEventListener("mousedown", onDocClick);
+  }, []);
+  const items = [
+    { key:"leads", label:"Export lead list", hint:"All leads, vendors, statuses & deal values" },
+    { key:"vendors", label:"Export vendor performance", hint:"Spend, leads, demos, CPL, CPQL, ROAS, CAC" },
+    { key:"summary", label:"Export executive summary", hint:"Overall KPIs for the current filter" },
+  ];
+  return (
+    <div className="dropdown-wrap" ref={wrapRef}>
+      <button type="button" className="btn btn-ghost" onClick={()=>setOpen(o=>!o)}>
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1V9M7 9L4 6M7 9L10 6M2 11V12.5C2 12.78 2.22 13 2.5 13H11.5C11.78 13 12 12.78 12 12.5V11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        Export data
+      </button>
+      {open && (
+        <div className="dropdown-menu">
+          {items.map(it=>(
+            <button key={it.key} type="button" className="dropdown-item" onClick={()=>{ setOpen(false); onExport(it.key); }}>
+              {it.label}<small>{it.hint}</small>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function ExportPreviewModal({ title, csv, filename, onClose }){
+  const [copied, setCopied] = useState(false);
+  function copy(){
+    try {
+      navigator.clipboard.writeText(csv);
+      setCopied(true); setTimeout(()=>setCopied(false), 1800);
+    } catch(e){}
+  }
+  return (
+    <div className="modal-overlay" onMouseDown={e=>{ if (e.target===e.currentTarget) onClose(); }}>
+      <div className="card w-full max-w-[560px] p-5" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-display font-semibold text-[16px]">{title}</h3>
+          <button type="button" className="btn-danger-ghost btn" style={{padding:4}} onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+        <p className="text-[12px] mb-3" style={{color:"var(--text-muted)"}}>We couldn't start a direct download here. Copy the CSV below and save it as <strong>{filename}</strong> (or paste straight into a spreadsheet).</p>
+        <textarea className="mono-area" rows="10" readOnly value={csv} onFocus={e=>e.target.select()}></textarea>
+        <div className="flex justify-end gap-2 mt-3">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Close</button>
+          <button type="button" className="btn btn-primary" onClick={copy}>{copied ? "Copied!" : "Copy to clipboard"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoginScreen(){const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");async function submit(e){e.preventDefault();setBusy(true);setError("");const {error}=await supabaseClient.auth.signInWithPassword({email:email.trim(),password});if(error)setError(error.message);setBusy(false);}return <div className="min-h-screen flex items-center justify-center px-4"><div className="card w-full max-w-[420px] p-6"><h1 className="font-display font-bold text-[21px]">MedVirtual Lead Vendor Dashboard</h1><p className="text-[13px] mt-1 mb-5" style={{color:"var(--text-muted)"}}>Sign in to continue.</p><form onSubmit={submit} className="flex flex-col gap-3.5"><div><label className="field-label">Email</label><input className="input" type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></div><div><label className="field-label">Password</label><input className="input" type="password" required value={password} onChange={e=>setPassword(e.target.value)}/></div>{error&&<div className="err-text" style={{minHeight:0}}>{error}</div>}<button className="btn btn-primary justify-center" disabled={busy}>{busy?"Signing in…":"Sign in"}</button></form></div></div>}
+
+/* ================= app ================= */
+const SUPABASE_URL = "https://mhqbwjwkbtgzbsdmeznk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_m2wm7uJpsaaNi87lW8R1dQ_tTcZLSGn";
+const supabaseClient = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+function dbLeadToUi(r){return {id:r.id,name:r.name||"",email:r.email||"",hubspotUrl:r.hubspot_url||"",vendorType:r.vendor_type||"meta",vendor:r.vendor||"",dateAcquired:r.date_acquired||"",status:r.status||"New",projectedDealAmount:Number(r.projected_deal_amount||0),closedContractAmount:Number(r.closed_contract_amount||0),contractSent:!!r.contract_sent,vaOnboarded:!!r.va_onboarded};}
+function uiLeadToDb(d){return {name:d.name.trim(),email:d.email?.trim()||null,hubspot_url:d.hubspotUrl?.trim()||null,vendor_type:d.vendorType,vendor:d.vendor,date_acquired:d.dateAcquired,status:d.status,projected_deal_amount:Number(d.projectedDealAmount||0),closed_contract_amount:Number(d.closedContractAmount||0),contract_sent:!!d.contractSent,va_onboarded:!!d.vaOnboarded};}
+function dbVendorToUi(r){return {id:r.id,name:r.name,type:r.type,status:r.status||"Active"};}
+function dbFinanceToUi(rows){const out={}; rows.forEach(r=>{if(!out[r.vendor])out[r.vendor]={};out[r.vendor][r.month_key]={budget:Number(r.budget||0),spend:Number(r.spend||0),id:r.id};});return out;}
+
+function App(){
+  const [leads,setLeads]=useState([]),[finance,setFinance]=useState({}),[vendors,setVendors]=useState([]);
+  const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[loading,setLoading]=useState(true),[syncing,setSyncing]=useState(false);
+  const [filters,setFilters]=useState({range:"all",year:"all",month:"all",type:"all",status:"all",search:""});
+  const [activeTab,setActiveTab]=useState("spend"),[vendorSort,setVendorSort]=useState({key:"spend",dir:"desc"}),[leadsSort,setLeadsSort]=useState({key:"dateAcquired",dir:"desc"});
+  const [modalOpen,setModalOpen]=useState(false),[editLead,setEditLead]=useState(null),[addVendorOpen,setAddVendorOpen]=useState(false),[exportModal,setExportModal]=useState(null),[toast,setToast]=useState(""),[themeTick,setThemeTick]=useState(0);
+  const downloadsRef=useRef(null),isAdmin=profile?.role==="admin";
+  useEffect(()=>{getDownloadsApi().then(api=>{downloadsRef.current=api;});},[]);
+  async function loadDashboardData(){setSyncing(true);try{const [a,b,c]=await Promise.all([supabaseClient.from("leads").select("*").order("date_acquired",{ascending:false}),supabaseClient.from("vendors").select("*").order("name"),supabaseClient.from("finance").select("*").order("month_key")]);if(a.error)throw a.error;if(b.error)throw b.error;if(c.error)throw c.error;setLeads((a.data||[]).map(dbLeadToUi));setVendors((b.data||[]).map(dbVendorToUi));setFinance(dbFinanceToUi(c.data||[]));}finally{setSyncing(false);}}
+  useEffect(()=>{let alive=true;async function boot(){try{const {data:{session:s}}=await supabaseClient.auth.getSession();if(!alive)return;setSession(s);if(s?.user){const {data:p,error}=await supabaseClient.from("profiles").select("id,full_name,role").eq("id",s.user.id).single();if(error)throw error;setProfile(p);await loadDashboardData();}}catch(e){console.error(e);showToast("Could not load dashboard data");}finally{if(alive)setLoading(false);}}boot();const {data:{subscription}}=supabaseClient.auth.onAuthStateChange(async(_,s)=>{setSession(s);if(!s?.user){setProfile(null);setLeads([]);setVendors([]);setFinance({});setLoading(false);return;}const {data:p,error}=await supabaseClient.from("profiles").select("id,full_name,role").eq("id",s.user.id).single();if(error){console.error(error);showToast("Profile could not be loaded");return;}setProfile(p);try{await loadDashboardData();}catch(e){console.error(e);showToast("Could not load dashboard data");}setLoading(false);});return()=>{alive=false;subscription.unsubscribe();};},[]);
+  useEffect(()=>{if(!session)return;const ch=supabaseClient.channel("lead-vendor-dashboard-live").on("postgres_changes",{event:"*",schema:"public",table:"leads"},loadDashboardData).on("postgres_changes",{event:"*",schema:"public",table:"vendors"},loadDashboardData).on("postgres_changes",{event:"*",schema:"public",table:"finance"},loadDashboardData).subscribe();return()=>{supabaseClient.removeChannel(ch);};},[session]);
+  useEffect(()=>{
+    function bump(){ setThemeTick(t=>t+1); }
+    const mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq) mq.addEventListener("change", bump);
+    const obs = new MutationObserver(bump);
+    obs.observe(document.documentElement, { attributes:true, attributeFilter:["data-theme"] });
+    return ()=>{ if (mq) mq.removeEventListener("change", bump); obs.disconnect(); };
+  }, []);
+
+  const financeScope = useMemo(()=>resolveFinanceScope(filters), [filters.year, filters.month]);
+
+  const filteredLeads = useMemo(()=>{
+    let out = leads;
+    if (filters.year !== "all" || filters.month !== "all"){
+      out = out.filter(l=>{
+        const ly = l.dateAcquired.slice(0,4), lm = l.dateAcquired.slice(5,7);
+        if (filters.year !== "all" && ly !== filters.year) return false;
+        if (filters.month !== "all" && lm !== filters.month) return false;
+        return true;
+      });
+    } else if (filters.range !== "all"){
+      const days = parseInt(filters.range,10);
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-days);
+      const cutoffIso = cutoff.toISOString().slice(0,10);
+      out = out.filter(l=>l.dateAcquired >= cutoffIso);
+    }
+    if (filters.type !== "all") out = out.filter(l=>l.vendorType===filters.type);
+    if (filters.status !== "all") out = out.filter(l=>l.status===filters.status);
+    if (filters.search.trim()){
+      const q = filters.search.trim().toLowerCase();
+      out = out.filter(l=> l.name.toLowerCase().includes(q) || l.vendor.toLowerCase().includes(q) || (l.email && l.email.toLowerCase().includes(q)));
+    }
+    return out;
+  }, [leads, filters]);
+
+  // Vendor names in scope for financial aggregation: channel-type filter, further
+  // narrowed by search so KPI $ metrics isolate to the searched vendor/lead's vendor.
+  const searchedVendorNames = useMemo(()=>{
+    if (!filters.search.trim()) return null;
+    const q = filters.search.trim().toLowerCase();
+    const set = new Set();
+    vendors.forEach(v=>{ if (v.name.toLowerCase().includes(q)) set.add(v.name); });
+    leads.forEach(l=>{ if (l.name.toLowerCase().includes(q) || (l.email && l.email.toLowerCase().includes(q))) set.add(l.vendor); });
+    return set;
+  }, [vendors, leads, filters.search]);
+
+  const financeScopeNames = useMemo(()=>{
+    let list = filters.type === "all" ? vendors : vendors.filter(v=>v.type===filters.type);
+    let names = list.map(v=>v.name);
+    if (searchedVendorNames) names = names.filter(n=>searchedVendorNames.has(n));
+    return names;
+  }, [vendors, filters.type, searchedVendorNames]);
+
+  const overallFinance = useMemo(()=> sumFinanceForScope(financeScopeNames, finance, financeScope), [financeScopeNames, finance, financeScope]);
+  const overallMetrics = useMemo(()=> computeGroupMetrics(filteredLeads, overallFinance), [filteredLeads, overallFinance]);
+
+  const channelRows = useMemo(()=>{
+    return CHANNELS.map(c=>{
+      const names = vendors.filter(v=>v.type===c.key).map(v=>v.name).filter(n=>financeScopeNames.includes(n));
+      const fin = sumFinanceForScope(names, finance, financeScope);
+      const list = filteredLeads.filter(l=>l.vendorType===c.key);
+      return { key:c.key, label:c.label, series:c.series, ...computeGroupMetrics(list, fin) };
+    });
+  }, [vendors, filteredLeads, finance, financeScope, financeScopeNames]);
+
+  const vendorRows = useMemo(()=>{
+    return vendors.filter(v=>financeScopeNames.includes(v.name)).map(v=>{
+      const list = filteredLeads.filter(l=>l.vendor===v.name);
+      const m = computeGroupMetrics(list, financeForScope(finance, v.name, financeScope));
+      return { key: v.name, type: v.type, status: v.status, ...m };
+    });
+  }, [vendors, filteredLeads, finance, financeScope, financeScopeNames]);
+
+  const topVendor = useMemo(()=>{
+    const withLeads = vendorRows.filter(r=>r.totalLeads>0);
+    if (!withLeads.length) return { name: null, type: "meta", revenue: 0 };
+    let top = null;
+    for (const r of withLeads){
+      if (!top || r.totalClosedContract > top.totalClosedContract ||
+          (r.totalClosedContract === top.totalClosedContract && r.totalLeads > top.totalLeads)) top = r;
+    }
+    return { name: top.key, type: top.type, revenue: top.totalClosedContract };
+  }, [vendorRows]);
+
+  const weeklySeries = useMemo(()=>{
+    const list = filteredLeads;
+    if (!list.length) return { labels:[], series:{}, total:[], conv:[] };
+    let min = list[0].dateAcquired, max = list[0].dateAcquired;
+    for (const l of list){ if (l.dateAcquired<min) min=l.dateAcquired; if (l.dateAcquired>max) max=l.dateAcquired; }
+    const start = new Date(min+"T00:00:00"); start.setDate(start.getDate()-start.getDay());
+    const end = new Date(max+"T00:00:00");
+    const buckets = [];
+    for (let d=new Date(start); d<=end; d.setDate(d.getDate()+7)) buckets.push(new Date(d));
+    const labels = buckets.map(b=>b.toLocaleDateString("en-US",{month:"short",day:"numeric"}));
+    function inBucket(b, type){
+      const bStart = b.toISOString().slice(0,10);
+      const bEndDate = new Date(b); bEndDate.setDate(bEndDate.getDate()+7);
+      const bEnd = bEndDate.toISOString().slice(0,10);
+      return list.filter(l=> (type?l.vendorType===type:true) && l.dateAcquired>=bStart && l.dateAcquired<bEnd);
+    }
+    const series = {};
+    CHANNELS.forEach(c=>{
+      series[c.key] = buckets.map(b=>{ const s=inBucket(b,c.key); return s.length? s.filter(l=>l.status==="Active Client").length/s.length*100 : null; });
+    });
+    const totalSeries = buckets.map(b=> inBucket(b,null).length );
+    const convSeries = buckets.map((b,i)=>{
+      const vals = CHANNELS.map(c=>series[c.key][i]).filter(v=>v!=null);
+      return vals.length ? vals.reduce((a,c)=>a+c,0)/vals.length : null;
+    });
+    return { labels, series, total: totalSeries, conv: convSeries };
+  }, [filteredLeads]);
+
+  const filtersActive = filters.range!=="all" || filters.year!=="all" || filters.month!=="all" || filters.type!=="all" || filters.status!=="all" || !!filters.search.trim();
+
+  async function updateFinance(vendor,field,value){if(!isAdmin||!financeScope.editable)return;const cur=getFinance(finance,vendor,financeScope.key),next={...cur,[field]:value};setFinance(f=>({...f,[vendor]:{...(f[vendor]||{}),[financeScope.key]:next}}));const {error}=await supabaseClient.from("finance").upsert({vendor,month_key:financeScope.key,budget:Number(next.budget||0),spend:Number(next.spend||0)},{onConflict:"vendor,month_key"});if(error){showToast("Couldn't save finance");await loadDashboardData();}}
+  async function handleStatusChange(id,status){if(!isAdmin)return;const {error}=await supabaseClient.from("leads").update({status}).eq("id",id);if(error)showToast("Couldn't update lead");else setLeads(ls=>ls.map(l=>l.id===id?{...l,status}:l));}
+  async function handleToggleContract(id){if(!isAdmin)return;const l=leads.find(x=>x.id===id);if(!l)return;const v=!l.contractSent;const {error}=await supabaseClient.from("leads").update({contract_sent:v}).eq("id",id);if(error)showToast("Couldn't update lead");else setLeads(ls=>ls.map(x=>x.id===id?{...x,contractSent:v}:x));}
+  async function handleToggleVA(id){if(!isAdmin)return;const l=leads.find(x=>x.id===id);if(!l)return;const v=!l.vaOnboarded;const {error}=await supabaseClient.from("leads").update({va_onboarded:v}).eq("id",id);if(error)showToast("Couldn't update lead");else setLeads(ls=>ls.map(x=>x.id===id?{...x,vaOnboarded:v}:x));}
+  async function handleDelete(id){if(!isAdmin)return;const l=leads.find(x=>x.id===id);if(l&&window.confirm('Remove "'+l.name+'" from '+l.vendor+'?')){const {error}=await supabaseClient.from("leads").delete().eq("id",id);if(error)showToast("Couldn't delete lead");else{setLeads(ls=>ls.filter(x=>x.id!==id));showToast("Lead deleted");}}}
+  async function handleAddLead(data){if(!isAdmin)return;const {data:r,error}=await supabaseClient.from("leads").insert(uiLeadToDb(data)).select().single();if(error){showToast(error.message||"Couldn't add lead");return;}setLeads(ls=>[dbLeadToUi(r),...ls]);setModalOpen(false);showToast("Lead added ✓");}
+  async function handleEditLead(data){if(!isAdmin||!editLead)return;const {data:r,error}=await supabaseClient.from("leads").update(uiLeadToDb(data)).eq("id",editLead.id).select().single();if(error){showToast(error.message||"Couldn't update lead");return;}setLeads(ls=>ls.map(x=>x.id===r.id?dbLeadToUi(r):x));setEditLead(null);showToast("Lead updated ✓");}
+  async function handleAddVendor({name,type}){if(!isAdmin)return;const {data:r,error}=await supabaseClient.from("vendors").insert({name,type,status:"Active"}).select().single();if(error){showToast(error.message||"Couldn't add vendor");return;}setVendors(vs=>[...vs,dbVendorToUi(r)].sort((a,b)=>a.name.localeCompare(b.name)));setAddVendorOpen(false);showToast("Vendor added ✓");}
+  async function handleToggleVendorStatus(name){if(!isAdmin)return;const v=vendors.find(x=>x.name===name);if(!v)return;const status=v.status==="Active"?"Offboarded":"Active";const {error}=await supabaseClient.from("vendors").update({status}).eq("id",v.id);if(error)showToast("Couldn't update vendor");else setVendors(vs=>vs.map(x=>x.id===v.id?{...x,status}:x));}
+  async function handleSignOut(){await supabaseClient.auth.signOut();}
+  function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),2000);}
+  function handleSort(setter, key){
+    setter(s=> s.key===key ? { key, dir: s.dir==="asc"?"desc":"asc" } : { key, dir:"asc" });
+  }
+  function resetFilters(){ setFilters({ range:"all", year:"all", month:"all", type:"all", status:"all", search:"" }); }
+
+  function showToast(msg){ setToast(msg); setTimeout(()=>setToast(""), 2000); }
+
+  function buildExport(kind){
+    const period = (filters.year!=="all" || filters.month!=="all")
+      ? financeScope.label.replace(/\s+/g,"-")
+      : (filters.range==="all" ? "all-time" : "last-"+filters.range+"-days");
+    if (kind === "leads"){
+      const headers = ["Lead Name","Email","HubSpot URL","Channel","Vendor","Date Acquired","Status","Projected Deal Amount","Closed Contract Amount","Contract Sent","VA Onboarded"];
+      const rows = filteredLeads.map(l=>[l.name, l.email||"", l.hubspotUrl||"", channelInfo(l.vendorType).label, l.vendor, l.dateAcquired, l.status, l.projectedDealAmount||0, l.closedContractAmount||0, l.contractSent?"Yes":"No", l.vaOnboarded?"Yes":"No"]);
+      return { title:"Export: Lead list", filename: "lead-list_"+period+".csv", csv: toCSV(headers, rows) };
+    }
+    if (kind === "vendors"){
+      const headers = ["Vendor","Channel","Status","Total Spend","Total Leads","Demos Booked","Demos Completed","CPL","CPQL","ROAS","CAC"];
+      const rows = vendorRows.map(r=>[r.key, channelInfo(r.type).label, r.status, r.spend, r.totalLeads, r.qualifiedDemosBooked, r.totalDemosCompleted, r.cpl.toFixed(2), r.cpql.toFixed(2), r.roas.toFixed(2), r.cac.toFixed(2)]);
+      return { title:"Export: Vendor performance", filename: "vendor-performance_"+period+".csv", csv: toCSV(headers, rows) };
+    }
+    const m = overallMetrics;
+    const headers = ["Metric","Value"];
+    const rows = [
+      ["Budget", m.budget], ["Spend", m.spend], ["Total Leads", m.totalLeads], ["Qualified Leads", m.qualifiedLeads],
+      ["Qualified Demos Booked", m.qualifiedDemosBooked], ["Total Demos Completed", m.totalDemosCompleted],
+      ["CPL", m.cpl.toFixed(2)], ["CPQL", m.cpql.toFixed(2)], ["Cost per Qualified Demo Booked", m.costPerQualDemo.toFixed(2)], ["Cost per Demo Completed", m.costPerDemoCompleted.toFixed(2)],
+      ["Contracts Sent", m.contractsSent], ["Active Clients", m.activeClients], ["VA Onboarded", m.vaOnboarded],
+      ["Total Projected Deal Amount", m.totalProjectedDeal], ["Total Closed Contract Amount", m.totalClosedContract],
+      ["Conversion Rate (%)", m.conversionRate.toFixed(1)], ["ROAS", m.roas.toFixed(2)], ["CAC", m.cac.toFixed(2)],
+      ["Period", period],
+    ];
+    return { title:"Export: Executive summary", filename: "executive-summary_"+period+".csv", csv: toCSV(headers, rows) };
+  }
+
+  async function handleExport(kind){
+    const { title, filename, csv } = buildExport(kind);
+    const api = downloadsRef.current;
+    if (api){
+      try {
+        await api.save({ filename, data: csv });
+        showToast("Downloaded " + filename);
+        return;
+      } catch(err){
+        if (err && err.code === "declined") return;
+        // fall through to the copyable preview for any other outcome
+      }
+    }
+    setExportModal({ title, csv, filename });
+  }
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-[13px]" style={{color:"var(--text-muted)"}}>Loading dashboard…</span></div>;
+  if (!session) return <LoginScreen />;
+
+  return (
+    <div className="min-h-screen">
+      <div className="max-w-[1280px] mx-auto px-4 md:px-6 py-6 flex flex-col gap-6">
+
+        <header className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 pb-3" style={{borderBottom:"1px solid var(--border)"}}>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect width="26" height="26" rx="7" fill="var(--accent)"/>
+              <text x="13" y="18.5" textAnchor="middle" fontFamily="Sora, sans-serif" fontWeight="800" fontSize="14" fill="var(--accent-contrast)">M</text>
+            </svg>
+            <span className="font-display font-bold text-[13px]" style={{letterSpacing:"0.02em"}}>MedVirtual</span>
+            <span style={{color:"var(--text-muted)"}}>/</span>
+            <span className="text-[13px] font-medium" style={{color:"var(--text-secondary)"}}>Lead Vendor Dashboard</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="font-display font-bold text-[21px] leading-tight">Lead Vendor Dashboard</h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="live-dot"></span>
+                <span className="text-[11.5px]" style={{color:"var(--text-muted)"}}>Live &middot; recalculates as leads, vendors, budget or spend change</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px]" style={{color:syncing?"var(--warning)":"var(--good)"}}>{syncing?"Syncing…":"Synced with Supabase"}</span>
+              <span className="text-[12px]" style={{color:"var(--text-secondary)"}}>{profile?.full_name||session?.user?.email} · {isAdmin?"Admin":"Viewer"}</span>
+              <button className="btn btn-ghost" onClick={handleSignOut}>Sign out</button>
+              <ExportMenu onExport={handleExport} />
+              {isAdmin&&<button className="btn btn-primary" onClick={()=>setModalOpen(true)}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1V13M1 7H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>Add lead</button>}
+            </div>
+          </div>
+        </header>
+
+        <div className="card px-4 py-3 flex flex-wrap items-center gap-3">
+          <span className="eyebrow mr-1">Filter</span>
+          <Segmented value={(filters.year==="all" && filters.month==="all") ? filters.range : "__none__"}
+            onChange={v=>setFilters(f=>({...f,range:v,year:"all",month:"all"}))}
+            options={[{value:"all",label:"All time"},{value:"7",label:"7d"},{value:"30",label:"30d"},{value:"90",label:"90d"}]} />
+          <select className="select" style={{width:"auto", minWidth:110}} value={filters.year} onChange={e=>setFilters(f=>({...f,year:e.target.value}))}>
+            <option value="all">Year: all</option>
+            {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+          <select className="select" style={{width:"auto", minWidth:140}} value={filters.month} onChange={e=>setFilters(f=>({...f,month:e.target.value}))}>
+            <option value="all">Month: all</option>
+            {MONTH_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <Segmented value={filters.type} onChange={v=>setFilters(f=>({...f,type:v}))}
+            options={[{value:"all",label:"All channels"}, ...CHANNELS.map(c=>({value:c.key,label:c.label,dotColor:"var("+c.series+")"}))]} />
+          <select className="select" style={{width:"auto", minWidth:140}} value={filters.status} onChange={e=>setFilters(f=>({...f,status:e.target.value}))}>
+            <option value="all">All statuses</option>
+            {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="relative flex-1" style={{minWidth:180}}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2" style={{color:"var(--text-muted)"}}><circle cx="6" cy="6" r="4.6" stroke="currentColor" strokeWidth="1.6"/><path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+            <input className="input" style={{paddingLeft:30}} type="text" placeholder="Search lead, email or vendor name…" value={filters.search} onChange={e=>setFilters(f=>({...f,search:e.target.value}))} />
+          </div>
+          {filtersActive && <button className="btn btn-ghost" onClick={resetFilters}>Reset</button>}
+        </div>
+
+        <KpiRow metrics={overallMetrics} weeklyTotals={weeklySeries.total||[]} weeklyConv={weeklySeries.conv||[]} topVendorLabel={topVendor} monthLabelText={financeScope.label} />
+
+        <InsightsPanel vendorRows={vendorRows} overallMetrics={overallMetrics} periodLabel={financeScope.label} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div className="card p-4 lg:col-span-2 flex flex-col">
+            <h2 className="section-title">Lead volume by channel</h2>
+            <p className="text-[12px] mb-4" style={{color:"var(--text-muted)"}}>Share of leads acquired across Meta Ads, Email &amp; Website</p>
+            <div className="flex-1 flex flex-col justify-center"><ChannelSplit channelRows={channelRows} /></div>
+          </div>
+          <div className="card p-4 lg:col-span-3 flex flex-col">
+            <h2 className="section-title">Conversion rate over time</h2>
+            <p className="text-[12px] mb-2" style={{color:"var(--text-muted)"}}>Weekly conversion rate by channel</p>
+            <div style={{height:230}}>
+              {overallMetrics.totalLeads === 0
+                ? <div className="empty-state h-full flex items-center justify-center">No leads logged yet — add one to see this chart populate.</div>
+                : <ConversionChart series={weeklySeries} themeTick={themeTick} />}
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4">
+          <h2 className="section-title">Lead lifecycle funnel</h2>
+          <p className="text-[12px] mb-2" style={{color:"var(--text-muted)"}}>Total leads through qualification, demos and active clients</p>
+          <div style={{height:220}}>
+            {overallMetrics.totalLeads === 0
+              ? <div className="empty-state h-full flex items-center justify-center">No leads logged yet — add one to see the funnel populate.</div>
+              : <FunnelChart metrics={overallMetrics} themeTick={themeTick} />}
+          </div>
+        </div>
+
+        <div className="card p-4">
+          <h2 className="section-title">Closed contract amount by vendor</h2>
+          <p className="text-[12px] mb-2" style={{color:"var(--text-muted)"}}>Actualized revenue per vendor, ranked highest to lowest</p>
+          <div style={{height:260}}>
+            {overallMetrics.totalLeads === 0
+              ? <div className="empty-state h-full flex items-center justify-center">No revenue logged yet — mark a lead as an Active Client to see this chart populate.</div>
+              : <RevenueByVendorChart rows={vendorRows} themeTick={themeTick} />}
+          </div>
+        </div>
+
+        <VendorFinancePanel vendors={vendors} finance={finance} scope={financeScope}
+          onChange={updateFinance} onToggleStatus={handleToggleVendorStatus} onAddVendorClick={()=>setAddVendorOpen(true)} isAdmin={isAdmin} />
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h2 className="section-title">Vendor performance</h2>
+            <Segmented value={activeTab} onChange={setActiveTab} options={METRIC_TABS.map(t=>({value:t.key,label:t.label}))} />
+          </div>
+          <ChannelSummaryCards channelRows={channelRows} activeTab={activeTab} />
+          <div className="card">
+            <VendorTable rows={vendorRows} activeTab={activeTab} sortState={vendorSort} onSort={k=>handleSort(setVendorSort,k)} />
+          </div>
+        </div>
+
+        <LeadsTable leads={filteredLeads} totalCount={leads.length} sortState={leadsSort} onSort={k=>handleSort(setLeadsSort,k)}
+          onStatusChange={handleStatusChange} onToggleContract={handleToggleContract} onToggleVA={handleToggleVA} onDelete={handleDelete} onEdit={setEditLead} isAdmin={isAdmin} />
+
+        <footer className="text-center text-[11.5px] py-4" style={{color:"var(--text-muted)"}}>
+          This dashboard starts empty. Log a lead, add vendors, and enter budget/spend above to see every metric recalculate live. Changes are saved to Supabase immediately and synchronized live for authorized users.
+        </footer>
+      </div>
+
+      {modalOpen && <AddLeadModal vendors={vendors} onClose={()=>setModalOpen(false)} onSubmit={handleAddLead} />}
+      {editLead && <EditLeadModal lead={editLead} vendors={vendors} onClose={()=>setEditLead(null)} onSubmit={handleEditLead} />}
+      {addVendorOpen && <AddVendorModal existingNames={vendors.map(v=>v.name)} onClose={()=>setAddVendorOpen(false)} onSubmit={handleAddVendor} />}
+      {exportModal && <ExportPreviewModal {...exportModal} onClose={()=>setExportModal(null)} />}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
