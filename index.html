@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 
 <style>
@@ -222,12 +223,15 @@ const BASE_VENDORS = [
   { name:"MedVirtual Website", type:"website" }, { name:"MyMedical VA website", type:"website" },
 ].map(v=>({ ...v, status:"Active" }));
 
-const STATUSES = ["New","Demo Booked","Demo Done","Active Client"];
+const STATUSES = ["New","Applicant","Demo Booked","No Show","Demo Done","Active Client","Unqualified"];
 const STATUS_META = {
   "New":           { badge: "badge-outline", dot: "var(--text-muted)" },
+  "Applicant":     { badge: "badge-fill",    dot: "var(--text-muted)" },
   "Demo Booked":   { badge: "badge-fill",    dot: "var(--text-muted)" },
+  "No Show":       { badge: "badge-warning", dot: "var(--warning)" },
   "Demo Done":     { badge: "badge-warning", dot: "var(--warning)" },
   "Active Client": { badge: "badge-good",    dot: "var(--good)" },
+  "Unqualified":   { badge: "badge-outline", dot: "var(--text-muted)" },
 };
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -1131,9 +1135,8 @@ function App(){
   const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[loading,setLoading]=useState(true),[syncing,setSyncing]=useState(false);
   const [filters,setFilters]=useState({range:"all",year:"all",month:"all",type:"all",status:"all",search:""});
   const [activeTab,setActiveTab]=useState("spend"),[vendorSort,setVendorSort]=useState({key:"spend",dir:"desc"}),[leadsSort,setLeadsSort]=useState({key:"dateAcquired",dir:"desc"});
-  const [modalOpen,setModalOpen]=useState(false),[editLead,setEditLead]=useState(null),[addVendorOpen,setAddVendorOpen]=useState(false),[exportModal,setExportModal]=useState(null),[toast,setToast]=useState(""),[themeTick,setThemeTick]=useState(0),[loginOpen,setLoginOpen]=useState(false);
-  const downloadsRef=useRef(null),isAdmin=profile?.role==="admin";
-  useEffect(()=>{getDownloadsApi().then(api=>{downloadsRef.current=api;});},[]);
+  const [modalOpen,setModalOpen]=useState(false),[editLead,setEditLead]=useState(null),[addVendorOpen,setAddVendorOpen]=useState(false),[toast,setToast]=useState(""),[themeTick,setThemeTick]=useState(0),[loginOpen,setLoginOpen]=useState(false);
+  const isAdmin=profile?.role==="admin";
   async function loadDashboardData(){setSyncing(true);try{const [a,b,c]=await Promise.all([supabaseClient.from("leads").select("*").order("date_acquired",{ascending:false}),supabaseClient.from("vendors").select("*").order("name"),supabaseClient.from("finance").select("*").order("month_key")]);if(a.error)throw a.error;if(b.error)throw b.error;if(c.error)throw c.error;setLeads((a.data||[]).map(dbLeadToUi));setVendors((b.data||[]).map(dbVendorToUi));setFinance(dbFinanceToUi(c.data||[]));}finally{setSyncing(false);}}
   useEffect(()=>{let alive=true;async function loadProfileAndData(s){try{if(s?.user){const {data:p,error}=await supabaseClient.from("profiles").select("id,full_name,role").eq("id",s.user.id).single();if(error)throw error;setProfile(p);}else{setProfile(null);}await loadDashboardData();}catch(e){console.error(e);showToast("Could not load dashboard data");}finally{if(alive)setLoading(false);}}async function boot(){try{const {data:{session:s}}=await supabaseClient.auth.getSession();if(!alive)return;setSession(s);await loadProfileAndData(s);}catch(e){console.error(e);if(alive){showToast("Could not load dashboard data");setLoading(false);}}}boot();const {data:{subscription}}=supabaseClient.auth.onAuthStateChange((_,s)=>{setSession(s);setTimeout(()=>{if(alive)loadProfileAndData(s);},0);});return()=>{alive=false;subscription.unsubscribe();};},[]);
   useEffect(()=>{const ch=supabaseClient.channel("lead-vendor-dashboard-live").on("postgres_changes",{event:"*",schema:"public",table:"leads"},loadDashboardData).on("postgres_changes",{event:"*",schema:"public",table:"vendors"},loadDashboardData).on("postgres_changes",{event:"*",schema:"public",table:"finance"},loadDashboardData).subscribe();return()=>{supabaseClient.removeChannel(ch);};},[]);
@@ -1269,51 +1272,89 @@ function App(){
 
   function showToast(msg){ setToast(msg); setTimeout(()=>setToast(""), 2000); }
 
-  function buildExport(kind){
-    const period = (filters.year!=="all" || filters.month!=="all")
-      ? financeScope.label.replace(/\s+/g,"-")
+  function exportPeriod(){
+    return (filters.year!=="all" || filters.month!=="all")
+      ? (financeScope.label || "filtered").replace(/\s+/g,"-")
       : (filters.range==="all" ? "all-time" : "last-"+filters.range+"-days");
-    if (kind === "leads"){
-      const headers = ["Lead Name","Email","HubSpot URL","Channel","Vendor","Date Acquired","Status","Projected Deal Amount","Closed Contract Amount","Contract Sent","VA Onboarded"];
-      const rows = filteredLeads.map(l=>[l.name, l.email||"", l.hubspotUrl||"", channelInfo(l.vendorType).label, l.vendor, l.dateAcquired, l.status, l.projectedDealAmount||0, l.closedContractAmount||0, l.contractSent?"Yes":"No", l.vaOnboarded?"Yes":"No"]);
-      return { title:"Export: Lead list", filename: "lead-list_"+period+".csv", csv: toCSV(headers, rows) };
-    }
-    if (kind === "vendors"){
-      const headers = ["Vendor","Channel","Status","Total Spend","Total Leads","Demos Booked","Demos Completed","CPL","CPQL","ROAS","CAC"];
-      const rows = vendorRows.map(r=>[r.key, channelInfo(r.type).label, r.status, r.spend, r.totalLeads, r.qualifiedDemosBooked, r.totalDemosCompleted, r.cpl.toFixed(2), r.cpql.toFixed(2), r.roas.toFixed(2), r.cac.toFixed(2)]);
-      return { title:"Export: Vendor performance", filename: "vendor-performance_"+period+".csv", csv: toCSV(headers, rows) };
-    }
-    const m = overallMetrics;
-    const headers = ["Metric","Value"];
-    const rows = [
-      ["Budget", m.budget], ["Spend", m.spend], ["Total Leads", m.totalLeads], ["Qualified Leads", m.qualifiedLeads],
-      ["Qualified Demos Booked", m.qualifiedDemosBooked], ["Total Demos Completed", m.totalDemosCompleted],
-      ["CPL", m.cpl.toFixed(2)], ["CPQL", m.cpql.toFixed(2)], ["Cost per Qualified Demo Booked", m.costPerQualDemo.toFixed(2)], ["Cost per Demo Completed", m.costPerDemoCompleted.toFixed(2)],
-      ["Contracts Sent", m.contractsSent], ["Active Clients", m.activeClients], ["VA Onboarded", m.vaOnboarded],
-      ["Total Projected Deal Amount", m.totalProjectedDeal], ["Total Closed Contract Amount", m.totalClosedContract],
-      ["Conversion Rate (%)", m.conversionRate.toFixed(1)], ["ROAS", m.roas.toFixed(2)], ["CAC", m.cac.toFixed(2)],
-      ["Period", period],
-    ];
-    return { title:"Export: Executive summary", filename: "executive-summary_"+period+".csv", csv: toCSV(headers, rows) };
   }
 
-  async function handleExport(kind){
-    const { title, filename, csv } = buildExport(kind);
-    const api = downloadsRef.current;
-    if (api){
-      try {
-        await api.save({ filename, data: csv });
-        showToast("Downloaded " + filename);
-        return;
-      } catch(err){
-        if (err && err.code === "declined") return;
-        // fall through to the copyable preview for any other outcome
-      }
+  function downloadExcel(kind){
+    if (!window.XLSX){ showToast("Excel export is still loading…"); return; }
+    const period = exportPeriod();
+    let rows = [];
+    let filename = "";
+    let sheetName = "Export";
+
+    if (kind === "leads") {
+      rows = filteredLeads.map(l => ({
+        "Lead Name": l.name,
+        "Email": l.email || "",
+        "HubSpot URL": l.hubspotUrl || "",
+        "Channel": channelInfo(l.vendorType).label,
+        "Vendor": l.vendor,
+        "Date Acquired": l.dateAcquired,
+        "Status": l.status,
+        "Projected Deal Amount": Number(l.projectedDealAmount || 0),
+        "Closed Contract Amount": Number(l.closedContractAmount || 0),
+        "Contract Sent": l.contractSent ? "Yes" : "No",
+        "VA Onboarded": l.vaOnboarded ? "Yes" : "No"
+      }));
+      filename = "lead-list_" + period + ".xlsx";
+      sheetName = "Lead List";
+    } else if (kind === "vendors") {
+      rows = vendorRows.map(r => ({
+        "Vendor": r.key,
+        "Channel": channelInfo(r.type).label,
+        "Status": r.status,
+        "Total Spend": Number(r.spend || 0),
+        "Total Leads": r.totalLeads,
+        "Demos Booked": r.qualifiedDemosBooked,
+        "Demos Completed": r.totalDemosCompleted,
+        "CPL": Number(r.cpl || 0),
+        "CPQL": Number(r.cpql || 0),
+        "ROAS": Number(r.roas || 0),
+        "CAC": Number(r.cac || 0)
+      }));
+      filename = "vendor-performance_" + period + ".xlsx";
+      sheetName = "Vendor Performance";
+    } else {
+      const m = overallMetrics;
+      rows = [
+        {"Metric":"Budget","Value":m.budget},
+        {"Metric":"Spend","Value":m.spend},
+        {"Metric":"Total Leads","Value":m.totalLeads},
+        {"Metric":"Qualified Leads","Value":m.qualifiedLeads},
+        {"Metric":"Qualified Demos Booked","Value":m.qualifiedDemosBooked},
+        {"Metric":"Total Demos Completed","Value":m.totalDemosCompleted},
+        {"Metric":"CPL","Value":Number(m.cpl || 0)},
+        {"Metric":"CPQL","Value":Number(m.cpql || 0)},
+        {"Metric":"Cost per Qualified Demo Booked","Value":Number(m.costPerQualDemo || 0)},
+        {"Metric":"Cost per Demo Completed","Value":Number(m.costPerDemoCompleted || 0)},
+        {"Metric":"Contracts Sent","Value":m.contractsSent},
+        {"Metric":"Active Clients","Value":m.activeClients},
+        {"Metric":"VA Onboarded","Value":m.vaOnboarded},
+        {"Metric":"Total Projected Deal Amount","Value":m.totalProjectedDeal},
+        {"Metric":"Total Closed Contract Amount","Value":m.totalClosedContract},
+        {"Metric":"Conversion Rate (%)","Value":Number(m.conversionRate || 0)},
+        {"Metric":"ROAS","Value":Number(m.roas || 0)},
+        {"Metric":"CAC","Value":Number(m.cac || 0)},
+        {"Metric":"Period","Value":period}
+      ];
+      filename = "executive-summary_" + period + ".xlsx";
+      sheetName = "Executive Summary";
     }
-    setExportModal({ title, csv, filename });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    worksheet["!cols"] = Object.keys(rows[0] || {}).map(key => ({ wch: Math.min(Math.max(key.length + 3, 14), 32) }));
+    XLSX.writeFile(workbook, filename);
+    showToast("Downloaded " + filename);
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-[13px]" style={{color:"var(--text-muted)"}}>Loading dashboard…</span></div>;
+  function handleExport(kind){
+    downloadExcel(kind);
+  }
 
   return (
     <div className="min-h-screen">
@@ -1440,7 +1481,6 @@ function App(){
       {modalOpen && <AddLeadModal vendors={vendors} onClose={()=>setModalOpen(false)} onSubmit={handleAddLead} />}
       {editLead && <EditLeadModal lead={editLead} vendors={vendors} onClose={()=>setEditLead(null)} onSubmit={handleEditLead} />}
       {addVendorOpen && <AddVendorModal existingNames={vendors.map(v=>v.name)} onClose={()=>setAddVendorOpen(false)} onSubmit={handleAddVendor} />}
-      {exportModal && <ExportPreviewModal {...exportModal} onClose={()=>setExportModal(null)} />}
       {loginOpen && <LoginScreen onClose={()=>setLoginOpen(false)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
