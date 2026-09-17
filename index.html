@@ -224,6 +224,8 @@ const BASE_VENDORS = [
 ].map(v=>({ ...v, status:"Active" }));
 
 const STATUSES = ["New","Applicant","Demo Booked","No Show","Demo Done","Active Client","Unqualified"];
+const QUALIFIED_STATUSES = new Set(["Active Client","New","Demo Booked","Demo Done"]);
+const DNC_STATUSES = new Set(["Applicant","No Show","Unqualified"]);
 const STATUS_META = {
   "New":           { badge: "badge-outline", dot: "var(--text-muted)" },
   "Applicant":     { badge: "badge-fill",    dot: "var(--text-muted)" },
@@ -321,7 +323,8 @@ const METRIC_COLUMNS = {
 function computeGroupMetrics(list, finance){
   const budget = finance.budget || 0, spend = finance.spend || 0;
   const totalLeads = list.length;
-  const qualifiedLeads = list.filter(l=>l.status!=="New").length;
+  const qualifiedLeads = list.filter(l=>QUALIFIED_STATUSES.has(l.status)).length;
+  const unqualifiedLeads = list.filter(l=>l.status==="Unqualified").length;
   const qualifiedDemosBooked = list.filter(l=>l.status==="Demo Booked"||l.status==="Demo Done"||l.status==="Active Client").length;
   const totalDemosCompleted = list.filter(l=>l.status==="Demo Done"||l.status==="Active Client").length;
   const activeClients = list.filter(l=>l.status==="Active Client").length;
@@ -331,7 +334,7 @@ function computeGroupMetrics(list, finance){
   const totalClosedContract = list.reduce((s,l)=> s + (l.closedContractAmount||0), 0);
   const conversionRate = totalLeads ? activeClients/totalLeads*100 : 0;
   return {
-    budget, spend, totalLeads, qualifiedLeads, qualifiedDemosBooked, totalDemosCompleted,
+    budget, spend, totalLeads, qualifiedLeads, dncLeads, unqualifiedLeads, qualifiedDemosBooked, totalDemosCompleted,
     activeClients, contractsSent, vaOnboarded, totalProjectedDeal, totalClosedContract, conversionRate,
     cpl: safeDiv(spend,totalLeads), cpql: safeDiv(spend,qualifiedLeads),
     costPerQualDemo: safeDiv(spend,qualifiedDemosBooked), costPerDemoCompleted: safeDiv(spend,totalDemosCompleted),
@@ -460,6 +463,7 @@ function KpiRow({ metrics, weeklyTotals, weeklyConv, topVendorLabel, monthLabelT
     { label:"Budget vs daily spend", isBudget:true },
     { label:"Total leads", value: metrics.totalLeads.toLocaleString("en-US"), spark:<Sparkline values={weeklyTotals} color="var(--accent)" /> },
     { label:"Qualified leads", value: metrics.qualifiedLeads.toLocaleString("en-US"), sub: fmtPct(safeDiv(metrics.qualifiedLeads,metrics.totalLeads)*100)+" of leads" },
+    { label:"Unqualified leads", value: metrics.unqualifiedLeads.toLocaleString("en-US"), sub: fmtPct(safeDiv(metrics.unqualifiedLeads,metrics.totalLeads)*100)+" of leads" },
     { label:"Cost per lead", value: money(metrics.cpl) },
     { label:"Conversion rate", value: fmtPct(metrics.conversionRate), spark:<Sparkline values={weeklyConv} color="var(--good)" /> },
     { label:"ROAS", value: fmtX(metrics.roas) },
@@ -861,8 +865,121 @@ function LeadsTable({ leads, totalCount, sortState, onSort, onStatusChange, onTo
       </tr>)}</tbody></table></div></div>;
 }
 
+/* ================= do not contact group ================= */
+function DncLeadsTable({ leads }){
+  const dncLeads = useMemo(()=>leads.filter(l=>DNC_STATUSES.has(l.status)).slice().sort((a,b)=>String(b.dateAcquired||"").localeCompare(String(a.dateAcquired||""))),[leads]);
+  return <div className="card p-4">
+    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <div><h2 className="section-title">Do Not Contact</h2><p className="text-[12px] mt-1" style={{color:"var(--text-muted)"}}>Automatically grouped from Applicant, No Show and Unqualified statuses.</p></div>
+      <span className="badge badge-critical"><span className="dot" style={{background:"var(--critical)"}}></span>{dncLeads.length} leads</span>
+    </div>
+    <div className="table-wrap scrollbar-thin" style={{maxHeight:360}}><table style={{minWidth:680}}><thead><tr><th>Lead name</th><th>Email</th><th>Vendor</th><th>Date acquired</th><th>Status</th></tr></thead>
+      <tbody>{dncLeads.length===0&&<tr><td colSpan="5"><div className="empty-state">No leads are currently marked Do Not Contact.</div></td></tr>}
+      {dncLeads.map(l=><tr key={l.id}><td className="font-medium">{l.name}</td><td style={{color:"var(--text-secondary)"}}>{l.email||"—"}</td><td><ChannelBadge type={l.vendorType}/> <span className="ml-1 text-[12px]" style={{color:"var(--text-secondary)"}}>{l.vendor}</span></td><td className="num-cell" style={{color:"var(--text-secondary)"}}>{fmtDate(l.dateAcquired)}</td><td><StatusBadge status={l.status}/></td></tr>)}</tbody>
+    </table></div>
+  </div>;
+}
+
+/* ================= lead duplicate + bulk import helpers ================= */
+function normalizeEmail(v){ return (v||"").trim().toLowerCase(); }
+function normalizePhone(v){ return (v||"").replace(/[^0-9+]/g,""); }
+function DuplicateLeadModal({lead,onSubmitAnyway,onCancel,onDiscard}){
+  return <div className="modal-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onCancel()}}>
+    <div className="card w-full max-w-[440px] p-5" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}>
+      <h3 className="font-display font-semibold text-[16px]">This lead already exists in the system.</h3>
+      <p className="text-[13px] mt-2" style={{color:"var(--text-muted)"}}>We found an existing lead with the same email or phone.</p>
+      <div className="card mt-4 p-3" style={{background:"var(--surface-raised)"}}>
+        <div className="font-medium text-[13px]">{lead?.name||"Existing lead"}</div>
+        {lead?.email&&<div className="text-[12px] mt-1" style={{color:"var(--text-secondary)"}}>{lead.email}</div>}
+        {lead?.phone&&<div className="text-[12px] mt-1" style={{color:"var(--text-secondary)"}}>{lead.phone}</div>}
+      </div>
+      <div className="flex justify-end gap-2 mt-5 flex-wrap">
+        <button type="button" className="btn btn-ghost" onClick={onDiscard}>Discard</button>
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn btn-primary" onClick={onSubmitAnyway}>Submit Anyway</button>
+      </div>
+    </div>
+  </div>;
+}
+function BulkUploadModal({vendors,onClose,onComplete}){
+  const [busy,setBusy]=useState(false),[result,setResult]=useState(null),[error,setError]=useState("");
+  const fileRef=useRef(null);
+  function parseValue(row,...names){ for(const n of names){ const k=Object.keys(row).find(x=>x.trim().toLowerCase()===n.trim().toLowerCase()); if(k!=null&&row[k]!==""&&row[k]!=null)return row[k]; } return ""; }
+  function boolValue(v){ return ["yes","true","1","y"].includes(String(v||"").trim().toLowerCase()); }
+  async function processFile(file){
+    if(!file)return;
+    setBusy(true);setError("");setResult(null);
+    try{
+      if(!window.XLSX) throw new Error("Excel import is still loading. Please try again.");
+      const ext=(file.name.split(".").pop()||"").toLowerCase();
+      if(!["xlsx","xls"].includes(ext)) throw new Error("Please upload an .xlsx or .xls file.");
+      const data=await file.arrayBuffer();
+      const wb=XLSX.read(data,{type:"array"});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
+      if(!rows.length) throw new Error("The uploaded spreadsheet is empty.");
+      let added=0,updated=0,failed=0;
+      const errors=[];
+      for(let i=0;i<rows.length;i++){
+        const r=rows[i];
+        const email=normalizeEmail(parseValue(r,"Email"));
+        const phone=String(parseValue(r,"Phone","Lead Phone")||"").trim();
+        const name=String(parseValue(r,"Lead Name","Name")||"").trim();
+        if(!name){failed++;errors.push(`Row ${i+2}: Lead Name is required.`);continue;}
+        if(!email){failed++;errors.push(`Row ${i+2}: Email is required for duplicate matching.`);continue;}
+        const status=String(parseValue(r,"Lead Status","Status","Deal Stage")||"New").trim();
+        const vendorTypeRaw=String(parseValue(r,"Channel")||"meta").trim().toLowerCase();
+        const typeMap={"meta ads":"meta",meta:"meta",email:"email",website:"website"};
+        const vendorType=typeMap[vendorTypeRaw]||vendorTypeRaw;
+        const vendor=String(parseValue(r,"Vendor")||"").trim();
+        const dateRaw=parseValue(r,"Date Acquired","Date");
+        let dateAcquired="";
+        if(typeof dateRaw==="number"&&XLSX.SSF){ const d=XLSX.SSF.parse_date_code(dateRaw); if(d) dateAcquired=`${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`; }
+        else dateAcquired=String(dateRaw||"").slice(0,10);
+        const dataObj={name,email,phone,hubspotUrl:String(parseValue(r,"HubSpot URL","Hubspot URL")||"").trim(),vendorType,vendor,dateAcquired,status:STATUSES.includes(status)?status:"New",projectedDealAmount:Math.max(0,parseFloat(parseValue(r,"Projected Deal Amount"))||0),closedContractAmount:Math.max(0,parseFloat(parseValue(r,"Closed Contract Amount"))||0),contractSent:boolValue(parseValue(r,"Contract Sent")),vaOnboarded:boolValue(parseValue(r,"VA Onboarded"))};
+        if(!dataObj.vendor){ const first=vendors.find(v=>v.type===vendorType&&v.status==="Active"); dataObj.vendor=first?.name||""; }
+        if(!dataObj.dateAcquired) dataObj.dateAcquired=new Date().toISOString().slice(0,10);
+        try{
+          let existing=null;
+          // Email is the primary matching key. Optional ID/phone are only fallbacks.
+          if(email){ const q=await supabaseClient.from("leads").select("*").ilike("email",email).limit(1); if(q.error) throw q.error; existing=q.data?.[0]||null; }
+          const id=String(parseValue(r,"ID","Lead ID","Unique ID")||"").trim();
+          if(!existing&&id){ const q=await supabaseClient.from("leads").select("*").eq("id",id).maybeSingle(); if(q.error) throw q.error; existing=q.data; }
+          if(!existing&&phone){ const q=await supabaseClient.from("leads").select("*").eq("phone",phone).limit(1); if(!q.error) existing=q.data?.[0]||null; }
+          if(existing){
+            let payload=uiLeadToDb(dataObj); delete payload.id;
+            let q=await supabaseClient.from("leads").update(payload).eq("id",existing.id).select().single();
+            if(q.error&&payload.phone){ delete payload.phone; q=await supabaseClient.from("leads").update(payload).eq("id",existing.id).select().single(); }
+            if(q.error) throw q.error;
+            updated++;
+          }else{
+            let payload=uiLeadToDb(dataObj); let q=await supabaseClient.from("leads").insert(payload).select().single();
+            if(q.error&&payload.phone){ delete payload.phone; q=await supabaseClient.from("leads").insert(payload).select().single(); }
+            if(q.error) throw q.error;
+            added++;
+          }
+        }catch(e){failed++;errors.push(`Row ${i+2}: ${e.message||"Could not save row."}`);}
+      }
+      setResult({added,updated,failed,errors});
+      await onComplete();
+    }catch(e){setError(e.message||"Could not import the spreadsheet.");}
+    finally{setBusy(false);if(fileRef.current)fileRef.current.value="";}
+  }
+  return <div className="modal-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)onClose()}}>
+    <div className="card w-full max-w-[620px] p-5" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}>
+      <div className="flex items-center justify-between mb-2"><h3 className="font-display font-semibold text-[16px]">Bulk Excel upload</h3><button type="button" className="btn-danger-ghost btn" style={{padding:4}} disabled={busy} onClick={onClose}>✕</button></div>
+      <p className="text-[12px] mb-4" style={{color:"var(--text-muted)"}}>Upload .xlsx or .xls. Existing leads are overwritten when their email or optional unique ID matches; new rows are inserted.</p>
+      <div className="card p-4" style={{background:"var(--surface-raised)"}}><div className="text-[12px] font-medium mb-2">Expected headers</div><div className="text-[11px] font-mono leading-6" style={{color:"var(--text-secondary)"}}>Lead Name · Email · Deal Stage · HubSpot URL · Channel · Date Acquired · Vendor · Lead Status · Projected Deal Amount · Closed Contract Amount · Contract Sent · VA Onboarded</div><div className="text-[11px] mt-2" style={{color:"var(--text-muted)"}}>Optional: Phone, ID / Lead ID. Lead Status is used for status; Deal Stage is used as a fallback. Email is the primary duplicate key.</div></div>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e=>processFile(e.target.files?.[0])}/>
+      <div className="flex justify-end gap-2 mt-4"><button type="button" className="btn btn-ghost" disabled={busy} onClick={onClose}>Close</button><button type="button" className="btn btn-primary" disabled={busy} onClick={()=>fileRef.current?.click()}>{busy?"Uploading…":"Choose Excel file"}</button></div>
+      {error&&<div className="err-text mt-3" style={{minHeight:0}}>{error}</div>}
+      {result&&<div className="card mt-4 p-4" style={{background:"var(--accent-wash)"}}><div className="font-medium text-[13px]">Upload complete</div><div className="text-[12px] mt-2" style={{color:"var(--text-secondary)"}}>{result.added} new leads added, {result.updated} existing leads updated{result.failed?`, ${result.failed} rows failed`:""}.</div>{result.errors?.length>0&&<div className="text-[11px] mt-2 max-h-28 overflow-auto" style={{color:"var(--critical)"}}>{result.errors.slice(0,12).map((x,i)=><div key={i}>{x}</div>)}</div>}</div>}
+    </div>
+  </div>;
+}
+
 /* ================= add lead modal ================= */
-const EMPTY_FORM = { name:"", email:"", hubspotUrl:"", vendorType:"meta", vendor:"", dateAcquired:"", status:"New", projectedDealAmount:0, closedContractAmount:0, contractSent:false, vaOnboarded:false };
+const EMPTY_FORM = { name:"", email:"", phone:"", hubspotUrl:"", vendorType:"meta", vendor:"", dateAcquired:"", status:"New", projectedDealAmount:0, closedContractAmount:0, contractSent:false, vaOnboarded:false };
 function AddLeadModal({ vendors, onClose, onSubmit }){
   const activeByType = useMemo(()=>{
     const m = {};
@@ -936,6 +1053,11 @@ function AddLeadModal({ vendors, onClose, onSubmit }){
                 value={form.hubspotUrl} onChange={e=>setField("hubspotUrl", e.target.value)} />
             </div>
           </div>
+          <div>
+            <label className="field-label" htmlFor="f-phone">Lead phone <span style={{fontWeight:400, color:"var(--text-muted)"}}>(optional)</span></label>
+            <input id="f-phone" className="input" type="tel" placeholder="+1 555 123 4567" autoComplete="off"
+              value={form.phone||""} onChange={e=>setField("phone", e.target.value)} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="field-label">Channel</label>
@@ -1004,7 +1126,7 @@ function AddLeadModal({ vendors, onClose, onSubmit }){
   );
 }
 
-function EditLeadModal({lead,vendors,onClose,onSubmit}){const [form,setForm]=useState({...lead}),[error,setError]=useState("");const opts=vendors.filter(v=>v.type===form.vendorType&&(v.status==="Active"||v.name===form.vendor));function setF(k,v){setForm(f=>({...f,[k]:v}));}function submit(e){e.preventDefault();if(!form.name.trim()){setError("Enter the lead's name.");return;}if(!form.vendor){setError("Choose a vendor.");return;}if(!form.dateAcquired){setError("Choose a date.");return;}onSubmit({...form,name:form.name.trim(),email:(form.email||"").trim(),hubspotUrl:(form.hubspotUrl||"").trim(),projectedDealAmount:Math.max(0,parseFloat(form.projectedDealAmount)||0),closedContractAmount:Math.max(0,parseFloat(form.closedContractAmount)||0)});}return <div className="modal-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><div className="card w-full max-w-[460px] p-5" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}><div className="flex items-center justify-between mb-4"><h3 className="font-display font-semibold text-[16px]">Edit lead</h3><button type="button" className="btn-danger-ghost btn" style={{padding:4}} onClick={onClose}>✕</button></div><form onSubmit={submit} className="flex flex-col gap-3.5"><div><label className="field-label">Lead name</label><input className="input" value={form.name} onChange={e=>setF("name",e.target.value)}/></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Lead email</label><input className="input" type="email" value={form.email||""} onChange={e=>setF("email",e.target.value)}/></div><div><label className="field-label">HubSpot URL</label><input className="input" type="url" value={form.hubspotUrl||""} onChange={e=>setF("hubspotUrl",e.target.value)}/></div></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Channel</label><select className="select" value={form.vendorType} onChange={e=>{const t=e.target.value,v=vendors.find(x=>x.type===t&&x.status==="Active");setForm(f=>({...f,vendorType:t,vendor:v?.name||""}))}}>{CHANNELS.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></div><div><label className="field-label">Date acquired</label><input className="input" type="date" value={form.dateAcquired} onChange={e=>setF("dateAcquired",e.target.value)}/></div></div><div><label className="field-label">Vendor</label><select className="select" value={form.vendor} onChange={e=>setF("vendor",e.target.value)}>{opts.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div><div><label className="field-label">Lead status</label><select className="select" value={form.status} onChange={e=>setF("status",e.target.value)}>{STATUSES.map(x=><option key={x} value={x}>{x}</option>)}</select></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Projected deal amount</label><input className="input" type="number" min="0" value={form.projectedDealAmount||0} onChange={e=>setF("projectedDealAmount",e.target.value)}/></div><div><label className="field-label">Closed contract amount</label><input className="input" type="number" min="0" value={form.closedContractAmount||0} onChange={e=>setF("closedContractAmount",e.target.value)}/></div></div><div className="flex items-center gap-5"><label className="flex items-center gap-2 text-[13px] font-medium"><input type="checkbox" className="checkbox" checked={!!form.contractSent} onChange={e=>setF("contractSent",e.target.checked)}/> Contract sent</label><label className="flex items-center gap-2 text-[13px] font-medium"><input type="checkbox" className="checkbox" checked={!!form.vaOnboarded} onChange={e=>setF("vaOnboarded",e.target.checked)}/> VA onboarded</label></div>{error&&<div className="err-text">{error}</div>}<div className="flex justify-end gap-2 mt-2"><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button type="submit" className="btn btn-primary">Save changes</button></div></form></div></div>}
+function EditLeadModal({lead,vendors,onClose,onSubmit}){const [form,setForm]=useState({...lead}),[error,setError]=useState("");const opts=vendors.filter(v=>v.type===form.vendorType&&(v.status==="Active"||v.name===form.vendor));function setF(k,v){setForm(f=>({...f,[k]:v}));}function submit(e){e.preventDefault();if(!form.name.trim()){setError("Enter the lead's name.");return;}if(!form.vendor){setError("Choose a vendor.");return;}if(!form.dateAcquired){setError("Choose a date.");return;}onSubmit({...form,name:form.name.trim(),email:(form.email||"").trim(),phone:(form.phone||"").trim(),hubspotUrl:(form.hubspotUrl||"").trim(),projectedDealAmount:Math.max(0,parseFloat(form.projectedDealAmount)||0),closedContractAmount:Math.max(0,parseFloat(form.closedContractAmount)||0)});}return <div className="modal-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><div className="card w-full max-w-[460px] p-5" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}><div className="flex items-center justify-between mb-4"><h3 className="font-display font-semibold text-[16px]">Edit lead</h3><button type="button" className="btn-danger-ghost btn" style={{padding:4}} onClick={onClose}>✕</button></div><form onSubmit={submit} className="flex flex-col gap-3.5"><div><label className="field-label">Lead name</label><input className="input" value={form.name} onChange={e=>setF("name",e.target.value)}/></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Lead email</label><input className="input" type="email" value={form.email||""} onChange={e=>setF("email",e.target.value)}/></div><div><label className="field-label">HubSpot URL</label><input className="input" type="url" value={form.hubspotUrl||""} onChange={e=>setF("hubspotUrl",e.target.value)}/></div></div><div><label className="field-label">Lead phone</label><input className="input" type="tel" value={form.phone||""} onChange={e=>setF("phone",e.target.value)}/></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Channel</label><select className="select" value={form.vendorType} onChange={e=>{const t=e.target.value,v=vendors.find(x=>x.type===t&&x.status==="Active");setForm(f=>({...f,vendorType:t,vendor:v?.name||""}))}}>{CHANNELS.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}</select></div><div><label className="field-label">Date acquired</label><input className="input" type="date" value={form.dateAcquired} onChange={e=>setF("dateAcquired",e.target.value)}/></div></div><div><label className="field-label">Vendor</label><select className="select" value={form.vendor} onChange={e=>setF("vendor",e.target.value)}>{opts.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div><div><label className="field-label">Lead status</label><select className="select" value={form.status} onChange={e=>setF("status",e.target.value)}>{STATUSES.map(x=><option key={x} value={x}>{x}</option>)}</select></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">Projected deal amount</label><input className="input" type="number" min="0" value={form.projectedDealAmount||0} onChange={e=>setF("projectedDealAmount",e.target.value)}/></div><div><label className="field-label">Closed contract amount</label><input className="input" type="number" min="0" value={form.closedContractAmount||0} onChange={e=>setF("closedContractAmount",e.target.value)}/></div></div><div className="flex items-center gap-5"><label className="flex items-center gap-2 text-[13px] font-medium"><input type="checkbox" className="checkbox" checked={!!form.contractSent} onChange={e=>setF("contractSent",e.target.checked)}/> Contract sent</label><label className="flex items-center gap-2 text-[13px] font-medium"><input type="checkbox" className="checkbox" checked={!!form.vaOnboarded} onChange={e=>setF("vaOnboarded",e.target.checked)}/> VA onboarded</label></div>{error&&<div className="err-text">{error}</div>}<div className="flex justify-end gap-2 mt-2"><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button type="submit" className="btn btn-primary">Save changes</button></div></form></div></div>}
 
 /* ================= add vendor modal ================= */
 function AddVendorModal({ existingNames, onClose, onSubmit }){
@@ -1125,8 +1247,8 @@ function LoginScreen({onClose}){const [email,setEmail]=useState(""),[password,se
 const SUPABASE_URL = "https://mhqbwjwkbtgzbsdmeznk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_m2wm7uJpsaaNi87lW8R1dQ_tTcZLSGn";
 const supabaseClient = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-function dbLeadToUi(r){return {id:r.id,name:r.name||"",email:r.email||"",hubspotUrl:r.hubspot_url||"",vendorType:r.vendor_type||"meta",vendor:r.vendor||"",dateAcquired:r.date_acquired||"",status:r.status||"New",projectedDealAmount:Number(r.projected_deal_amount||0),closedContractAmount:Number(r.closed_contract_amount||0),contractSent:!!r.contract_sent,vaOnboarded:!!r.va_onboarded};}
-function uiLeadToDb(d){return {name:d.name.trim(),email:d.email?.trim()||null,hubspot_url:d.hubspotUrl?.trim()||null,vendor_type:d.vendorType,vendor:d.vendor,date_acquired:d.dateAcquired,status:d.status,projected_deal_amount:Number(d.projectedDealAmount||0),closed_contract_amount:Number(d.closedContractAmount||0),contract_sent:!!d.contractSent,va_onboarded:!!d.vaOnboarded};}
+function dbLeadToUi(r){return {id:r.id,name:r.name||"",email:r.email||"",phone:r.phone||"",hubspotUrl:r.hubspot_url||"",vendorType:r.vendor_type||"meta",vendor:r.vendor||"",dateAcquired:r.date_acquired||"",status:r.status||"New",projectedDealAmount:Number(r.projected_deal_amount||0),closedContractAmount:Number(r.closed_contract_amount||0),contractSent:!!r.contract_sent,vaOnboarded:!!r.va_onboarded};}
+function uiLeadToDb(d){const row={name:d.name.trim(),email:d.email?.trim()||null,hubspot_url:d.hubspotUrl?.trim()||null,vendor_type:d.vendorType,vendor:d.vendor,date_acquired:d.dateAcquired,status:d.status,projected_deal_amount:Number(d.projectedDealAmount||0),closed_contract_amount:Number(d.closedContractAmount||0),contract_sent:!!d.contractSent,va_onboarded:!!d.vaOnboarded}; if (d.phone?.trim()) row.phone=d.phone.trim(); return row;}
 function dbVendorToUi(r){return {id:r.id,name:r.name,type:r.type,status:r.status||"Active"};}
 function dbFinanceToUi(rows){const out={}; rows.forEach(r=>{if(!out[r.vendor])out[r.vendor]={};out[r.vendor][r.month_key]={budget:Number(r.budget||0),spend:Number(r.spend||0),id:r.id};});return out;}
 
@@ -1135,7 +1257,7 @@ function App(){
   const [session,setSession]=useState(null),[profile,setProfile]=useState(null),[loading,setLoading]=useState(true),[syncing,setSyncing]=useState(false);
   const [filters,setFilters]=useState({range:"all",year:"all",month:"all",type:"all",status:"all",search:""});
   const [activeTab,setActiveTab]=useState("spend"),[vendorSort,setVendorSort]=useState({key:"spend",dir:"desc"}),[leadsSort,setLeadsSort]=useState({key:"dateAcquired",dir:"desc"});
-  const [modalOpen,setModalOpen]=useState(false),[editLead,setEditLead]=useState(null),[addVendorOpen,setAddVendorOpen]=useState(false),[toast,setToast]=useState(""),[themeTick,setThemeTick]=useState(0),[loginOpen,setLoginOpen]=useState(false);
+  const [modalOpen,setModalOpen]=useState(false),[editLead,setEditLead]=useState(null),[addVendorOpen,setAddVendorOpen]=useState(false),[toast,setToast]=useState(""),[themeTick,setThemeTick]=useState(0),[loginOpen,setLoginOpen]=useState(false),[duplicateLead,setDuplicateLead]=useState(null),[bulkUploadOpen,setBulkUploadOpen]=useState(false);
   const isAdmin=profile?.role==="admin";
   async function loadDashboardData(){setSyncing(true);try{const [a,b,c]=await Promise.all([supabaseClient.from("leads").select("*").order("date_acquired",{ascending:false}),supabaseClient.from("vendors").select("*").order("name"),supabaseClient.from("finance").select("*").order("month_key")]);if(a.error)throw a.error;if(b.error)throw b.error;if(c.error)throw c.error;setLeads((a.data||[]).map(dbLeadToUi));setVendors((b.data||[]).map(dbVendorToUi));setFinance(dbFinanceToUi(c.data||[]));}finally{setSyncing(false);}}
   useEffect(()=>{let alive=true;async function loadProfileAndData(s){try{if(s?.user){const {data:p,error}=await supabaseClient.from("profiles").select("id,full_name,role").eq("id",s.user.id).single();if(error)throw error;setProfile(p);}else{setProfile(null);}await loadDashboardData();}catch(e){console.error(e);showToast("Could not load dashboard data");}finally{if(alive)setLoading(false);}}async function boot(){try{const {data:{session:s}}=await supabaseClient.auth.getSession();if(!alive)return;setSession(s);await loadProfileAndData(s);}catch(e){console.error(e);if(alive){showToast("Could not load dashboard data");setLoading(false);}}}boot();const {data:{subscription}}=supabaseClient.auth.onAuthStateChange((_,s)=>{setSession(s);setTimeout(()=>{if(alive)loadProfileAndData(s);},0);});return()=>{alive=false;subscription.unsubscribe();};},[]);
@@ -1259,7 +1381,25 @@ function App(){
   async function handleToggleContract(id){if(!isAdmin)return;const l=leads.find(x=>x.id===id);if(!l)return;const v=!l.contractSent;const {error}=await supabaseClient.from("leads").update({contract_sent:v}).eq("id",id);if(error)showToast("Couldn't update lead");else setLeads(ls=>ls.map(x=>x.id===id?{...x,contractSent:v}:x));}
   async function handleToggleVA(id){if(!isAdmin)return;const l=leads.find(x=>x.id===id);if(!l)return;const v=!l.vaOnboarded;const {error}=await supabaseClient.from("leads").update({va_onboarded:v}).eq("id",id);if(error)showToast("Couldn't update lead");else setLeads(ls=>ls.map(x=>x.id===id?{...x,vaOnboarded:v}:x));}
   async function handleDelete(id){if(!isAdmin)return;const l=leads.find(x=>x.id===id);if(l&&window.confirm('Remove "'+l.name+'" from '+l.vendor+'?')){const {error}=await supabaseClient.from("leads").delete().eq("id",id);if(error)showToast("Couldn't delete lead");else{setLeads(ls=>ls.filter(x=>x.id!==id));showToast("Lead deleted");}}}
-  async function handleAddLead(data){if(!isAdmin)return;const {data:r,error}=await supabaseClient.from("leads").insert(uiLeadToDb(data)).select().single();if(error){showToast(error.message||"Couldn't add lead");return;}setLeads(ls=>[dbLeadToUi(r),...ls]);setModalOpen(false);showToast("Lead added ✓");}
+  async function handleAddLead(data,force=false){
+    if(!isAdmin)return;
+    if(!force){
+      const email=normalizeEmail(data.email), phone=normalizePhone(data.phone);
+      let existing=null;
+      if(email){ const q=await supabaseClient.from("leads").select("*").ilike("email",email).limit(1); if(q.error){showToast(q.error.message||"Couldn’t check duplicates");return;} existing=q.data?.[0]||null; }
+      if(!existing&&phone){
+        const q=await supabaseClient.from("leads").select("*").eq("phone",phone).limit(1);
+        if(!q.error) existing=q.data?.[0]||null;
+        if(!existing){ const local=leads.find(l=>normalizePhone(l.phone)===phone); if(local) existing=local; }
+      }
+      if(existing){setDuplicateLead({data,existing});return;}
+    }
+    let payload=uiLeadToDb(data);
+    let {data:r,error}=await supabaseClient.from("leads").insert(payload).select().single();
+    if(error&&payload.phone){ delete payload.phone; ({data:r,error}=await supabaseClient.from("leads").insert(payload).select().single()); if(!error)showToast("Lead added ✓ (phone not saved: add a phone column to Supabase leads)"); }
+    if(error){showToast(error.message||"Couldn’t add lead");return;}
+    setLeads(ls=>[dbLeadToUi(r),...ls]);setModalOpen(false);setDuplicateLead(null);if(!payload.phone)showToast("Lead added ✓");
+  }
   async function handleEditLead(data){if(!isAdmin||!editLead)return;const {data:r,error}=await supabaseClient.from("leads").update(uiLeadToDb(data)).eq("id",editLead.id).select().single();if(error){showToast(error.message||"Couldn't update lead");return;}setLeads(ls=>ls.map(x=>x.id===r.id?dbLeadToUi(r):x));setEditLead(null);showToast("Lead updated ✓");}
   async function handleAddVendor({name,type}){if(!isAdmin)return;const {data:r,error}=await supabaseClient.from("vendors").insert({name,type,status:"Active"}).select().single();if(error){showToast(error.message||"Couldn't add vendor");return;}setVendors(vs=>[...vs,dbVendorToUi(r)].sort((a,b)=>a.name.localeCompare(b.name)));setAddVendorOpen(false);showToast("Vendor added ✓");}
   async function handleToggleVendorStatus(name){if(!isAdmin)return;const v=vendors.find(x=>x.name===name);if(!v)return;const status=v.status==="Active"?"Offboarded":"Active";const {error}=await supabaseClient.from("vendors").update({status}).eq("id",v.id);if(error)showToast("Couldn't update vendor");else setVendors(vs=>vs.map(x=>x.id===v.id?{...x,status}:x));}
@@ -1324,6 +1464,8 @@ function App(){
         {"Metric":"Spend","Value":m.spend},
         {"Metric":"Total Leads","Value":m.totalLeads},
         {"Metric":"Qualified Leads","Value":m.qualifiedLeads},
+        {"Metric":"Do Not Contact Leads","Value":m.dncLeads},
+        {"Metric":"Unqualified Leads","Value":m.unqualifiedLeads},
         {"Metric":"Qualified Demos Booked","Value":m.qualifiedDemosBooked},
         {"Metric":"Total Demos Completed","Value":m.totalDemosCompleted},
         {"Metric":"CPL","Value":Number(m.cpl || 0)},
@@ -1382,6 +1524,7 @@ function App(){
               <span className="text-[11px]" style={{color:syncing?"var(--warning)":"var(--good)"}}>{syncing?"Syncing…":"Synced with Supabase"}</span>
               {session ? <><span className="text-[12px]" style={{color:"var(--text-secondary)"}}>{profile?.full_name||session?.user?.email} · {isAdmin?"Admin":"Viewer"}</span><button className="btn btn-ghost" onClick={handleSignOut}>Sign out</button></> : <button className="btn btn-ghost" onClick={()=>setLoginOpen(true)}>Admin login</button>}
               <ExportMenu onExport={handleExport} />
+              {isAdmin&&<button className="btn btn-ghost" onClick={()=>setBulkUploadOpen(true)}>Bulk upload</button>}
               {isAdmin&&<button className="btn btn-primary" onClick={()=>setModalOpen(true)}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1V13M1 7H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>Add lead</button>}
             </div>
           </div>
@@ -1446,6 +1589,8 @@ function App(){
           </div>
         </div>
 
+        <DncLeadsTable leads={leads} />
+
         <div className="card p-4">
           <h2 className="section-title">Closed contract amount by vendor</h2>
           <p className="text-[12px] mb-2" style={{color:"var(--text-muted)"}}>Actualized revenue per vendor, ranked highest to lowest</p>
@@ -1479,6 +1624,8 @@ function App(){
       </div>
 
       {modalOpen && <AddLeadModal vendors={vendors} onClose={()=>setModalOpen(false)} onSubmit={handleAddLead} />}
+      {duplicateLead && <DuplicateLeadModal lead={duplicateLead.existing} onSubmitAnyway={()=>handleAddLead(duplicateLead.data,true)} onCancel={()=>setDuplicateLead(null)} onDiscard={()=>{setDuplicateLead(null);setModalOpen(false);}} />}
+      {bulkUploadOpen && <BulkUploadModal vendors={vendors} onClose={()=>setBulkUploadOpen(false)} onComplete={async()=>{await loadDashboardData();showToast("Excel upload synced ✓");}} />}
       {editLead && <EditLeadModal lead={editLead} vendors={vendors} onClose={()=>setEditLead(null)} onSubmit={handleEditLead} />}
       {addVendorOpen && <AddVendorModal existingNames={vendors.map(v=>v.name)} onClose={()=>setAddVendorOpen(false)} onSubmit={handleAddVendor} />}
       {loginOpen && <LoginScreen onClose={()=>setLoginOpen(false)} />}
