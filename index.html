@@ -1054,11 +1054,6 @@ function AddLeadModal({ vendors, onClose, onSubmit }){
                 value={form.hubspotUrl} onChange={e=>setField("hubspotUrl", e.target.value)} />
             </div>
           </div>
-          <div>
-            <label className="field-label" htmlFor="f-phone">Lead phone <span style={{fontWeight:400, color:"var(--text-muted)"}}>(optional)</span></label>
-            <input id="f-phone" className="input" type="tel" placeholder="+1 555 123 4567" autoComplete="off"
-              value={form.phone||""} onChange={e=>setField("phone", e.target.value)} />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="field-label">Channel</label>
