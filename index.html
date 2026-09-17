@@ -324,6 +324,7 @@ function computeGroupMetrics(list, finance){
   const budget = finance.budget || 0, spend = finance.spend || 0;
   const totalLeads = list.length;
   const qualifiedLeads = list.filter(l=>QUALIFIED_STATUSES.has(l.status)).length;
+  const dncLeads = list.filter(l=>DNC_STATUSES.has(l.status)).length;
   const unqualifiedLeads = list.filter(l=>l.status==="Unqualified").length;
   const qualifiedDemosBooked = list.filter(l=>l.status==="Demo Booked"||l.status==="Demo Done"||l.status==="Active Client").length;
   const totalDemosCompleted = list.filter(l=>l.status==="Demo Done"||l.status==="Active Client").length;
@@ -1429,6 +1430,7 @@ function App(){
       rows = filteredLeads.map(l => ({
         "Lead Name": l.name,
         "Email": l.email || "",
+        "Phone": l.phone || "",
         "HubSpot URL": l.hubspotUrl || "",
         "Channel": channelInfo(l.vendorType).label,
         "Vendor": l.vendor,
