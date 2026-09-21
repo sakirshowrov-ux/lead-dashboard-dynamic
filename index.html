@@ -1261,9 +1261,6 @@ function App(){
     return ()=>{ if (mq) mq.removeEventListener("change", bump); obs.disconnect(); };
   }, []);
 
-  if (loading) return <div className="fixed inset-0 flex items-center justify-center" style={{background:"var(--page-plane)",color:"var(--text-muted)",fontFamily:"var(--font-body)"}}>Loading dashboard…</div>;
-  if (!session) return <LoginScreen />;
-
   const financeScope = useMemo(()=>resolveFinanceScope(filters), [filters.year, filters.month]);
 
   const filteredLeads = useMemo(()=>{
@@ -1366,6 +1363,10 @@ function App(){
     });
     return { labels, series, total: totalSeries, conv: convSeries };
   }, [filteredLeads]);
+
+  // Keep all hooks above these early returns. React requires hooks to run in the same order on every render.
+  if (loading) return <div className="fixed inset-0 flex items-center justify-center" style={{background:"var(--page-plane)",color:"var(--text-muted)",fontFamily:"var(--font-body)"}}>Loading dashboard…</div>;
+  if (!session) return <LoginScreen />;
 
   const filtersActive = filters.range!=="all" || filters.year!=="all" || filters.month!=="all" || filters.type!=="all" || filters.status!=="all" || !!filters.search.trim();
 
